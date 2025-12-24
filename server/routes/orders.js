@@ -119,6 +119,19 @@ router.patch('/:id/status', authenticate, authorize('admin', 'staff', 'cashier')
   }
 });
 
+// Delete order (admin only)
+router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const order = await Order.findByIdAndDelete(req.params.id);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    res.json({ message: 'Order deleted successfully' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Get daily collection statistics (admin only)
 router.get('/stats/daily', authenticate, authorize('admin'), async (req, res) => {
   try {

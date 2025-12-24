@@ -57,6 +57,7 @@ class ApiClient {
     create: (data) => this.request('/orders', { method: 'POST', body: data }),
     updateStatus: (id, status) => 
       this.request(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
+    delete: (id) => this.request(`/orders/${id}`, { method: 'DELETE' }),
     getDailyStats: () => this.request('/orders/stats/daily'),
   };
 

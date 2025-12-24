@@ -32,7 +32,7 @@ export default function Admin() {
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ['orders'],
-    queryFn: () => apiClient.orders.list(50, '-createdAt'),
+    queryFn: () => apiClient.orders.list(500, '-createdAt'), // Increased limit for better date range filtering
   });
 
   const { data: discounts = [], isLoading: discountsLoading } = useQuery({
