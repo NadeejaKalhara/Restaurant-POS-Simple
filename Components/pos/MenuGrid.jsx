@@ -39,7 +39,7 @@ export default function MenuGrid({ items, onItemClick, selectedCategory }) {
                 <h3 className="text-white font-medium text-sm mb-1 group-hover:text-amber-400 transition-colors">
                   {item.name}
                 </h3>
-                <p className="text-amber-800 dark:text-amber-500 font-semibold mt-auto">
+                <p className="text-amber-950 dark:text-amber-500 font-semibold mt-auto">
                   ${item.price.toFixed(2)}
                 </p>
               </div>
