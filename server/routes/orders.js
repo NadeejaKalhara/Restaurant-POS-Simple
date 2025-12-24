@@ -1,6 +1,7 @@
 import express from 'express';
 import Order from '../models/Order.js';
 import Counter from '../models/Counter.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -32,8 +33,8 @@ async function getNextOrderNumber() {
   return orderNum;
 }
 
-// Get all orders
-router.get('/', async (req, res) => {
+// Get all orders (authenticated users only)
+router.get('/', authenticate, async (req, res) => {
   try {
     const { limit = 50, sort = '-createdAt' } = req.query;
     const orders = await Order.find()
@@ -46,8 +47,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single order
-router.get('/:id', async (req, res) => {
+// Get single order (authenticated users only)
+router.get('/:id', authenticate, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate('items.menuItemId', 'name price');
@@ -60,8 +61,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create order
-router.post('/', async (req, res) => {
+// Create order (authenticated users - staff/cashier/admin)
+router.post('/', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res) => {
   try {
     const { items, discountCode, table_number, payment_method, notes } = req.body;
     
@@ -89,7 +90,8 @@ router.post('/', async (req, res) => {
       table_number: table_number || 'Walk-in',
       status: 'completed',
       payment_method: payment_method || 'cash',
-      notes: notes || ''
+      notes: notes || '',
+      createdBy: req.user._id
     });
     
     await order.save();
@@ -99,8 +101,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update order status
-router.patch('/:id/status', async (req, res) => {
+// Update order status (authenticated users - staff/cashier/admin)
+router.patch('/:id/status', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res) => {
   try {
     const { status } = req.body;
     const order = await Order.findByIdAndUpdate(
@@ -117,8 +119,8 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
-// Get daily collection statistics
-router.get('/stats/daily', async (req, res) => {
+// Get daily collection statistics (admin only)
+router.get('/stats/daily', authenticate, authorize('admin'), async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -164,4 +166,3 @@ router.get('/stats/daily', async (req, res) => {
 });
 
 export default router;
-

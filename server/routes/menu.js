@@ -1,9 +1,10 @@
 import express from 'express';
 import MenuItem from '../models/MenuItem.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all menu items
+// Get all menu items (public - for POS display)
 router.get('/', async (req, res) => {
   try {
     const items = await MenuItem.find().sort({ category: 1, name: 1 });
@@ -13,7 +14,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get single menu item
+// Get single menu item (public - for POS display)
 router.get('/:id', async (req, res) => {
   try {
     const item = await MenuItem.findById(req.params.id);
@@ -26,8 +27,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create menu item
-router.post('/', async (req, res) => {
+// Create menu item (admin only)
+router.post('/', authenticate, authorize('admin'), async (req, res) => {
   try {
     const item = new MenuItem(req.body);
     await item.save();
@@ -37,8 +38,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update menu item
-router.put('/:id', async (req, res) => {
+// Update menu item (admin only)
+router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
   try {
     const item = await MenuItem.findByIdAndUpdate(
       req.params.id,
@@ -54,8 +55,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete menu item
-router.delete('/:id', async (req, res) => {
+// Delete menu item (admin only)
+router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
   try {
     const item = await MenuItem.findByIdAndDelete(req.params.id);
     if (!item) {
@@ -68,4 +69,3 @@ router.delete('/:id', async (req, res) => {
 });
 
 export default router;
-

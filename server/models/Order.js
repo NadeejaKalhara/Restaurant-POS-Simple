@@ -70,10 +70,14 @@ const orderSchema = new mongoose.Schema({
   notes: {
     type: String,
     default: ''
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false
   }
 }, {
   timestamps: true
 });
 
 export default mongoose.model('Order', orderSchema);
-

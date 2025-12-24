@@ -1,10 +1,11 @@
 import express from 'express';
 import Discount from '../models/Discount.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all discounts
-router.get('/', async (req, res) => {
+// Get all discounts (admin only)
+router.get('/', authenticate, authorize('admin'), async (req, res) => {
   try {
     const discounts = await Discount.find().sort({ createdAt: -1 });
     res.json(discounts);
@@ -13,7 +14,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get active discounts
+// Get active discounts (public - for POS)
 router.get('/active', async (req, res) => {
   try {
     const now = new Date();
@@ -35,7 +36,7 @@ router.get('/active', async (req, res) => {
   }
 });
 
-// Validate discount code
+// Validate discount code (public - for POS)
 router.post('/validate', async (req, res) => {
   try {
     const { code, subtotal } = req.body;
@@ -97,8 +98,8 @@ router.post('/validate', async (req, res) => {
   }
 });
 
-// Create discount
-router.post('/', async (req, res) => {
+// Create discount (admin only)
+router.post('/', authenticate, authorize('admin'), async (req, res) => {
   try {
     const discount = new Discount(req.body);
     await discount.save();
@@ -108,8 +109,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update discount
-router.put('/:id', async (req, res) => {
+// Update discount (admin only)
+router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
   try {
     const discount = await Discount.findByIdAndUpdate(
       req.params.id,
@@ -125,8 +126,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete discount
-router.delete('/:id', async (req, res) => {
+// Delete discount (admin only)
+router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
   try {
     const discount = await Discount.findByIdAndDelete(req.params.id);
     if (!discount) {
@@ -138,8 +139,8 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Increment usage count
-router.post('/:id/use', async (req, res) => {
+// Increment usage count (authenticated users)
+router.post('/:id/use', authenticate, authorize('admin', 'staff', 'cashier'), async (req, res) => {
   try {
     const discount = await Discount.findByIdAndUpdate(
       req.params.id,
@@ -156,4 +157,3 @@ router.post('/:id/use', async (req, res) => {
 });
 
 export default router;
-
