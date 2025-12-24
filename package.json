@@ -9,7 +9,8 @@
     "dev:client": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "deploy": "./deploy.sh"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.14.2",
