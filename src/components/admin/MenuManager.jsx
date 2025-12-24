@@ -15,16 +15,19 @@ import { toast } from 'sonner';
 import { formatCurrency } from '@/utils/currency';
 
 const categoryColors = {
-  appetizers: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-  mains: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  drinks: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
-  desserts: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
+  noodles: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+  bites: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+  shorties: 'bg-red-500/10 text-red-600 dark:text-red-400',
+  beverages: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
+  rice_curry: 'bg-green-500/10 text-green-600 dark:text-green-400',
+  fried_rice: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
+  kottu: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
 };
 
 export default function MenuManager({ menuItems }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ name: '', price: '', category: 'mains', available: true });
+  const [formData, setFormData] = useState({ name: '', price: '', category: 'noodles', available: true });
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
@@ -63,7 +66,7 @@ export default function MenuManager({ menuItems }) {
   });
 
   const resetForm = () => {
-    setFormData({ name: '', price: '', category: 'mains', available: true });
+    setFormData({ name: '', price: '', category: 'noodles', available: true });
     setEditingItem(null);
     setIsOpen(false);
   };
@@ -135,10 +138,13 @@ export default function MenuManager({ menuItems }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-                    <SelectItem value="appetizers">Appetizers</SelectItem>
-                    <SelectItem value="mains">Mains</SelectItem>
-                    <SelectItem value="drinks">Drinks</SelectItem>
-                    <SelectItem value="desserts">Desserts</SelectItem>
+                    <SelectItem value="noodles">Noodles</SelectItem>
+                    <SelectItem value="bites">Bites</SelectItem>
+                    <SelectItem value="shorties">Shorties</SelectItem>
+                    <SelectItem value="beverages">Beverages</SelectItem>
+                    <SelectItem value="rice_curry">Rice & Curry</SelectItem>
+                    <SelectItem value="fried_rice">Fried Rice</SelectItem>
+                    <SelectItem value="kottu">Kottu</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -5,10 +5,13 @@ import { motion } from 'framer-motion';
 import { formatCurrency } from '@/utils/currency';
 
 const categoryColors = {
-  appetizers: 'bg-orange-500/10 text-orange-400 border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-400',
-  mains: 'bg-blue-500/10 text-blue-400 border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-400',
-  drinks: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-400',
-  desserts: 'bg-pink-500/10 text-pink-400 border-pink-500/20 dark:bg-pink-500/10 dark:text-pink-400',
+  noodles: 'bg-orange-500/10 text-orange-400 border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-400',
+  bites: 'bg-purple-500/10 text-purple-400 border-purple-500/20 dark:bg-purple-500/10 dark:text-purple-400',
+  shorties: 'bg-red-500/10 text-red-400 border-red-500/20 dark:bg-red-500/10 dark:text-red-400',
+  beverages: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-400',
+  rice_curry: 'bg-green-500/10 text-green-400 border-green-500/20 dark:bg-green-500/10 dark:text-green-400',
+  fried_rice: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20 dark:bg-yellow-500/10 dark:text-yellow-400',
+  kottu: 'bg-blue-500/10 text-blue-400 border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-400',
 };
 
 export default function MenuGrid({ items, onItemClick, selectedCategory }) {
@@ -33,9 +36,11 @@ export default function MenuGrid({ items, onItemClick, selectedCategory }) {
               <div className="flex flex-col h-full">
                 <Badge 
                   variant="outline" 
-                  className={`${categoryColors[item.category]} text-xs w-fit mb-2`}
+                  className={`${categoryColors[item.category] || 'bg-slate-500/10 text-slate-400'} text-xs w-fit mb-2`}
                 >
-                  {item.category}
+                  {item.category === 'rice_curry' ? 'Rice & Curry' : 
+                   item.category === 'fried_rice' ? 'Fried Rice' :
+                   item.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : ''}
                 </Badge>
                 <h3 className="text-slate-900 dark:text-white font-medium text-sm mb-1 group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors line-clamp-2">
                   {item.name}

@@ -14,8 +14,8 @@ const menuItemSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['appetizers', 'mains', 'drinks', 'desserts'],
-    default: 'mains'
+    enum: ['noodles', 'bites', 'shorties', 'beverages', 'rice_curry', 'fried_rice', 'kottu'],
+    default: 'noodles'
   },
   available: {
     type: Boolean,

@@ -240,17 +240,26 @@ export default function POSTerminal() {
                 <TabsTrigger value="all" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
                   All
                 </TabsTrigger>
-                <TabsTrigger value="appetizers" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
-                  Appetizers
+                <TabsTrigger value="noodles" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
+                  Noodles
                 </TabsTrigger>
-                <TabsTrigger value="mains" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
-                  Mains
+                <TabsTrigger value="bites" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
+                  Bites
                 </TabsTrigger>
-                <TabsTrigger value="drinks" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
-                  Drinks
+                <TabsTrigger value="shorties" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
+                  Shorties
                 </TabsTrigger>
-                <TabsTrigger value="desserts" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
-                  Desserts
+                <TabsTrigger value="beverages" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
+                  Beverages
+                </TabsTrigger>
+                <TabsTrigger value="rice_curry" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
+                  Rice & Curry
+                </TabsTrigger>
+                <TabsTrigger value="fried_rice" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
+                  Fried Rice
+                </TabsTrigger>
+                <TabsTrigger value="kottu" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
+                  Kottu
                 </TabsTrigger>
               </TabsList>
             </Tabs>
