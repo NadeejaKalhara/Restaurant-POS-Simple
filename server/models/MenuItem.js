@@ -8,7 +8,17 @@ const menuItemSchema = new mongoose.Schema({
   },
   price: {
     type: Number,
-    required: true,
+    required: false,
+    min: 0
+  },
+  regularPrice: {
+    type: Number,
+    required: false,
+    min: 0
+  },
+  largePrice: {
+    type: Number,
+    required: false,
     min: 0
   },
   category: {
@@ -34,4 +44,3 @@ const menuItemSchema = new mongoose.Schema({
 });
 
 export default mongoose.model('MenuItem', menuItemSchema);
-
