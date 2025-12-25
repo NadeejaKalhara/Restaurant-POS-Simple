@@ -157,3 +157,6 @@ router.post('/:id/use', authenticate, authorize('admin', 'staff', 'cashier'), as
 });
 
 export default router;
+
+
+

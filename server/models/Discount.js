@@ -57,3 +57,6 @@ const discountSchema = new mongoose.Schema({
 
 export default mongoose.model('Discount', discountSchema);
 
+
+
+

@@ -5,6 +5,8 @@ import { Printer, X, Utensils } from 'lucide-react';
 import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';
 import KOTReceipt from './KOTReceipt';
+import { printReceipt, isQZAvailable } from '@/utils/qzPrint';
+import { toast } from 'sonner';
 
 export default function Receipt({ 
   open, 
@@ -15,13 +17,29 @@ export default function Receipt({
 }) {
   const printRef = useRef(null);
   const [showKOT, setShowKOT] = useState(false);
+  const [qzAvailable, setQzAvailable] = useState(false);
+
+  // Check QZ Tray availability
+  useEffect(() => {
+    setQzAvailable(isQZAvailable());
+  }, []);
 
   // Auto-print receipt when dialog opens
   useEffect(() => {
     if (open && printRef.current && orderData) {
       // Small delay to ensure content is rendered before printing
-      const timer = setTimeout(() => {
-        window.print();
+      const timer = setTimeout(async () => {
+        await printReceipt(printRef.current, {
+          useQZ: true,
+          onSuccess: (method) => {
+            if (method === 'Printed via QZ Tray') {
+              toast.success('Receipt printed via QZ Tray');
+            }
+          },
+          onError: () => {
+            // Browser print fallback will be triggered automatically
+          }
+        });
       }, 300);
       
       return () => clearTimeout(timer);
@@ -33,8 +51,22 @@ export default function Receipt({
   const { items, subtotal, discountAmount, discountCode, total, table_number, payment_method } = orderData;
   const orderDate = new Date();
 
-  const handlePrintReceipt = () => {
-    window.print();
+  const handlePrintReceipt = async () => {
+    if (!printRef.current) return;
+    
+    await printReceipt(printRef.current, {
+      useQZ: true,
+      onSuccess: (method) => {
+        if (method === 'Printed via QZ Tray') {
+          toast.success('Receipt printed via QZ Tray');
+        } else {
+          toast.success('Receipt printed');
+        }
+      },
+      onError: (error) => {
+        toast.error('Print failed. Please check your printer connection.');
+      }
+    });
   };
 
   const handlePrintKOT = () => {

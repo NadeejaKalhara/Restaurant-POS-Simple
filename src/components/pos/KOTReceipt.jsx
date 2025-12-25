@@ -1,5 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { format } from 'date-fns';
+import { printReceipt, isQZAvailable } from '@/utils/qzPrint';
+import { toast } from 'sonner';
 
 export default function KOTReceipt({ 
   orderItems,
@@ -12,14 +14,29 @@ export default function KOTReceipt({
   useEffect(() => {
     if (printRef.current && orderItems && orderItems.length > 0) {
       // Small delay to ensure content is rendered before printing
-      const timer = setTimeout(() => {
-        window.print();
-        // Callback after print dialog is shown
-        if (onPrintComplete) {
-          setTimeout(() => {
-            onPrintComplete();
-          }, 500);
-        }
+      const timer = setTimeout(async () => {
+        await printReceipt(printRef.current, {
+          useQZ: true,
+          onSuccess: (method) => {
+            if (method === 'Printed via QZ Tray') {
+              toast.success('KOT printed via QZ Tray');
+            }
+            // Callback after print
+            if (onPrintComplete) {
+              setTimeout(() => {
+                onPrintComplete();
+              }, 500);
+            }
+          },
+          onError: () => {
+            // Browser print fallback will be triggered automatically
+            if (onPrintComplete) {
+              setTimeout(() => {
+                onPrintComplete();
+              }, 500);
+            }
+          }
+        });
       }, 100);
       
       return () => clearTimeout(timer);
