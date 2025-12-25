@@ -57,7 +57,7 @@ export default function KOTReceipt({
 
   return (
     <>
-      {/* Print-only KOT - rendered for direct printing */}
+      {/* KOT content for QZ Tray printing */}
       <div ref={printRef} className="hidden print:block print:fixed print:inset-0 print:z-[9999] print:bg-white">
         <div className="p-6 bg-white text-black max-w-sm mx-auto">
           {/* KOT Header */}
