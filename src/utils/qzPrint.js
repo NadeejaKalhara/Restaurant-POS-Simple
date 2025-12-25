@@ -207,17 +207,26 @@ export async function getPrinter() {
       );
       if (xpK200L) return xpK200L;
       
-      // Priority 2: Other receipt/thermal printers
-      const receiptPrinter = printers.find(p => 
-        p.toLowerCase().includes('receipt') || 
-        p.toLowerCase().includes('pos') ||
-        p.toLowerCase().includes('thermal') ||
-        p.toLowerCase().includes('xp')
-      );
+      // Priority 2: Other receipt/thermal printers (exclude virtual printers)
+      const virtualPrinters = ['anydesk', 'pdf', 'fax', 'microsoft print to pdf', 'onenote', 'snagit', 'xps', 'send to'];
+      const receiptPrinter = printers.find(p => {
+        const pLower = p.toLowerCase();
+        // Skip virtual printers
+        if (virtualPrinters.some(vp => pLower.includes(vp))) return false;
+        // Look for real printers
+        return pLower.includes('receipt') || 
+               pLower.includes('pos') ||
+               pLower.includes('thermal') ||
+               pLower.includes('xp');
+      });
       if (receiptPrinter) return receiptPrinter;
       
-      // Fallback: first available printer
-      return printers[0];
+      // Fallback: first non-virtual printer
+      const realPrinter = printers.find(p => {
+        const pLower = p.toLowerCase();
+        return !virtualPrinters.some(vp => pLower.includes(vp));
+      });
+      return realPrinter || printers[0];
     }
     return null;
   } catch (error) {
@@ -242,14 +251,19 @@ export async function printWithQZ(htmlContent, printerName = null) {
     }
 
     // Create print configuration optimized for 80mm thermal printer (XP k200L)
+    // Note: QZ Tray expects numeric values for size, not strings
     const config = qz.configs.create(printer, {
-      // Paper size: 80mm width (3.15 inches)
-      size: { width: '80mm', height: 'auto' },
-      // Margins optimized for thermal paper
+      // Paper size: 80mm width (3.15 inches = 302.4 points)
+      // QZ Tray uses points (1/72 inch) as default unit
+      // 80mm = 3.1496 inches = 226.77 points
+      size: { 
+        width: 226.77,  // 80mm in points
+        height: null     // Auto height (null instead of 'auto')
+      },
+      // Margins optimized for thermal paper (in points)
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
-      // Units in millimeters
-      units: 'mm',
-      // Orientation: portrait
+      // Units: points (default, no need to specify)
+      // Orientation: portrait (default)
       orientation: 'portrait',
       // Color mode: grayscale (thermal printers)
       colorType: 'grayscale',

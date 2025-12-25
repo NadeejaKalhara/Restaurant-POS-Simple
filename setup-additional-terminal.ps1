@@ -1,16 +1,15 @@
-# QZ Tray Certificate Signing Setup Script
-# This script sets up server-side certificate signing for QZ Tray
+# QZ Tray Setup for Additional Terminal/PC
+# This script sets up QZ Tray certificate signing on additional terminals
+# It copies the certificate files from the main server setup
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "QZ Tray Certificate Signing Setup" -ForegroundColor Cyan
+Write-Host "QZ Tray Setup for Additional Terminal" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Set paths
 $certZipUrl = "https://supabase.cynex.lk/storage/v1/object/sign/dbackups/QZ%20Tray%20Demo%20Cert.zip?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJkYmFja3Vwcy9RWiBUcmF5IERlbW8gQ2VydC56aXAiLCJpYXQiOjE3NjY3MDE1NTksImV4cCI6MTc2OTI5MzU1OX0.k8AgjEzOJ_16SN5TJN-mWXxvTH02KXxVtOOU5KHHDg8"
 $defaultCertPath = "C:\Users\elkal\Downloads\QZ Tray Demo Cert"
-$qzTrayPath = "C:\Program Files\QZ Tray\demo"
-$qzTrayPathX86 = "C:\Program Files (x86)\QZ Tray\demo"
 $tempDir = Join-Path $env:TEMP "qz-cert-setup"
 $zipFile = Join-Path $tempDir "QZ-Tray-Demo-Cert.zip"
 
@@ -49,7 +48,7 @@ if (-not (Test-Path $tempDir)) {
 
 # Try to download certificate zip file
 $downloadSuccess = $false
-$demoPath = $null
+$sourceCertPath = $null
 
 try {
     Write-Host "Downloading certificate files from Supabase storage..." -ForegroundColor Cyan
@@ -67,14 +66,14 @@ try {
     # Find the certificate folder in extracted files
     $certFolder = Get-ChildItem -Path $extractPath -Directory -Filter "*QZ*Tray*Demo*Cert*" | Select-Object -First 1
     if ($certFolder) {
-        $demoPath = $certFolder.FullName
-        Write-Host "Extracted certificate files to: $demoPath" -ForegroundColor Green
+        $sourceCertPath = $certFolder.FullName
+        Write-Host "Extracted certificate files to: $sourceCertPath" -ForegroundColor Green
         $downloadSuccess = $true
     } else {
         # Try direct path
         $directPath = Join-Path $extractPath "QZ Tray Demo Cert"
         if (Test-Path $directPath) {
-            $demoPath = $directPath
+            $sourceCertPath = $directPath
             $downloadSuccess = $true
         }
     }
@@ -89,20 +88,16 @@ if (-not $downloadSuccess) {
     Write-Host "Checking local certificate files..." -ForegroundColor Green
     
     if (Test-Path $defaultCertPath) {
-        $demoPath = $defaultCertPath
+        $sourceCertPath = $defaultCertPath
         Write-Host "Found certificate files at: $defaultCertPath" -ForegroundColor Green
-    } elseif (Test-Path $qzTrayPath) {
-        $demoPath = $qzTrayPath
-        Write-Host "Found QZ Tray at: $qzTrayPath" -ForegroundColor Green
-    } elseif (Test-Path $qzTrayPathX86) {
-        $demoPath = $qzTrayPathX86
-        Write-Host "Found QZ Tray at: $qzTrayPathX86" -ForegroundColor Green
     } else {
-        Write-Host "Certificate files not found in standard locations." -ForegroundColor Yellow
-        Write-Host "Please enter path to certificate files:" -ForegroundColor Yellow
+        Write-Host "Certificate source not found at: $defaultCertPath" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Please enter the path to the certificate files:" -ForegroundColor Yellow
+        Write-Host "  (Should contain digital-certificate.txt and private-key.pem)" -ForegroundColor Gray
         $customPath = Read-Host "Path"
         if (Test-Path $customPath) {
-            $demoPath = $customPath
+            $sourceCertPath = $customPath
         } else {
             Write-Host "Path not found. Exiting." -ForegroundColor Red
             exit 1
@@ -110,31 +105,23 @@ if (-not $downloadSuccess) {
     }
 }
 
-Write-Host ""
-Write-Host "Step 3: Checking for certificate files..." -ForegroundColor Green
-
-$certFile = Join-Path $demoPath "digital-certificate.txt"
-$keyFile = Join-Path $demoPath "private-key.pem"
+$certFile = Join-Path $sourceCertPath "digital-certificate.txt"
+$keyFile = Join-Path $sourceCertPath "private-key.pem"
 
 if (-not (Test-Path $certFile)) {
     Write-Host "ERROR: digital-certificate.txt not found at: $certFile" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Please ensure QZ Tray is installed and demo folder exists." -ForegroundColor Yellow
     exit 1
 }
 
 if (-not (Test-Path $keyFile)) {
     Write-Host "ERROR: private-key.pem not found at: $keyFile" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Please ensure QZ Tray demo folder contains private-key.pem" -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "Found certificate file: $certFile" -ForegroundColor Green
-Write-Host "Found private key file: $keyFile" -ForegroundColor Green
+Write-Host "Found certificate files at: $sourceCertPath" -ForegroundColor Green
 Write-Host ""
 
-Write-Host "Step 3: Creating target directory..." -ForegroundColor Green
+Write-Host "Step 2: Creating target directory..." -ForegroundColor Green
 
 # Create target directory
 if (-not (Test-Path $targetDir)) {
@@ -145,7 +132,7 @@ if (-not (Test-Path $targetDir)) {
 }
 
 Write-Host ""
-Write-Host "Step 5: Copying files..." -ForegroundColor Green
+Write-Host "Step 3: Copying certificate files..." -ForegroundColor Green
 
 # Copy certificate
 $targetCert = Join-Path $targetDir "digital-certificate.txt"
@@ -158,7 +145,7 @@ Copy-Item -Path $keyFile -Destination $targetKey -Force
 Write-Host "Copied private key to: $targetKey" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "Step 6: Setting file permissions..." -ForegroundColor Green
+Write-Host "Step 4: Setting file permissions..." -ForegroundColor Green
 
 # Set permissions (private key should be readable only by owner)
 try {
@@ -177,7 +164,7 @@ try {
 }
 
 Write-Host ""
-Write-Host "Step 7: Verifying server configuration..." -ForegroundColor Green
+Write-Host "Step 5: Verifying configuration..." -ForegroundColor Green
 
 # Check if this is a production deployment (no src folder) or development
 $isProduction = -not (Test-Path (Join-Path $projectRoot "src"))
@@ -185,37 +172,16 @@ $appJsxPath = Join-Path $projectRoot "src\App.jsx"
 
 if ($isProduction) {
     Write-Host "Production deployment detected (no src folder)" -ForegroundColor Cyan
-    Write-Host "App.jsx update skipped - using compiled version" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Note: For production at shan.cynex.lk, the app is already compiled." -ForegroundColor Yellow
     Write-Host "Certificate files are in place for server-side signing." -ForegroundColor Green
+    Write-Host "For production at shan.cynex.lk, the app is already compiled." -ForegroundColor Cyan
 } elseif (Test-Path $appJsxPath) {
     Write-Host "Development mode - checking App.jsx..." -ForegroundColor Cyan
     $content = Get-Content $appJsxPath -Raw
     
-    # Check if already configured correctly
     if ($content -match "certificateUrl.*'/api/qz/certificate'" -and $content -match "signatureUrl.*'/api/qz/sign'") {
-        Write-Host "App.jsx already configured for certificate signing" -ForegroundColor Green
+        Write-Host "App.jsx is already configured for certificate signing" -ForegroundColor Green
     } else {
-        # Try to find and update configureQZSigning call
-        $oldConfigPattern = 'configureQZSigning\s*\(\s*\{[^}]*\}\s*\);'
-        
-        if ($content -match $oldConfigPattern) {
-            # Replace existing configuration
-            $newConfig = @"
-configureQZSigning({
-  certificateUrl: '/api/qz/certificate',
-  signatureUrl: '/api/qz/sign',
-  useDemoCert: false
-});
-"@
-            $content = $content -replace $oldConfigPattern, $newConfig
-            Set-Content -Path $appJsxPath -Value $content -NoNewline
-            Write-Host "Updated App.jsx to enable certificate signing" -ForegroundColor Green
-        } else {
-            Write-Host "App.jsx found but configureQZSigning not detected." -ForegroundColor Yellow
-            Write-Host "If needed, add this configuration manually." -ForegroundColor Yellow
-        }
+        Write-Host "App.jsx found but may need configuration." -ForegroundColor Yellow
     }
 } else {
     Write-Host "App.jsx not found - this is normal for production deployments" -ForegroundColor Cyan
@@ -223,7 +189,7 @@ configureQZSigning({
 }
 
 Write-Host ""
-Write-Host "Step 8: Cleaning up temporary files..." -ForegroundColor Green
+Write-Host "Step 6: Cleaning up temporary files..." -ForegroundColor Green
 
 # Clean up temp files
 try {
@@ -240,17 +206,14 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Setup Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Files copied to: $targetDir" -ForegroundColor Cyan
+Write-Host "Certificate files copied to: $targetDir" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "1. Install certificate trust (fixes 'Untrusted Website' error):" -ForegroundColor White
-Write-Host "   Run: install-qz-cert-trust.bat (as Administrator)" -ForegroundColor Cyan
-Write-Host "2. Restart your server" -ForegroundColor White
-Write-Host "3. Restart your browser" -ForegroundColor White
-Write-Host "4. Test printing from https://shan.cynex.lk/" -ForegroundColor White
+Write-Host "1. Make sure your server is running and accessible" -ForegroundColor White
+Write-Host "2. Restart your browser" -ForegroundColor White
+Write-Host "3. Test printing from your POS application" -ForegroundColor White
 Write-Host ""
-Write-Host "Certificate signing is now enabled!" -ForegroundColor Green
-Write-Host ""
-Write-Host "IMPORTANT: If you see 'Untrusted Website' error, run install-qz-cert-trust.bat" -ForegroundColor Yellow
+Write-Host "Note: This terminal will use the same certificate as your main setup." -ForegroundColor Cyan
+Write-Host "All terminals connecting to the same server can share the same certificate." -ForegroundColor Cyan
 Write-Host ""
 

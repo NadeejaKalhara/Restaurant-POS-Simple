@@ -10,6 +10,7 @@ import { createPageUrl } from '@/utils';
 import MenuManager from '@/components/admin/MenuManager';
 import OrderHistory from '@/components/admin/OrderHistory';
 import DiscountManager from '@/components/admin/DiscountManager';
+import QZTraySettings from '@/components/admin/QZTraySettings';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/utils/currency';
@@ -135,6 +136,10 @@ export default function Admin() {
               <Tag className="w-4 h-4 mr-2 inline" />
               Discounts
             </TabsTrigger>
+            <TabsTrigger value="settings" className="data-[state=active]:bg-amber-500 data-[state=active]:text-slate-900 text-xs sm:text-sm">
+              <Receipt className="w-4 h-4 mr-2 inline" />
+              QZ Tray
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="menu">
@@ -165,6 +170,10 @@ export default function Admin() {
             ) : (
               <DiscountManager discounts={discounts} />
             )}
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <QZTraySettings />
           </TabsContent>
         </Tabs>
       </div>
