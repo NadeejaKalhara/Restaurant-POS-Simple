@@ -62,29 +62,32 @@ export function configureQZSigning(options = {}) {
     useDemoCert = true // Use demo certificate if no URL provided
   } = options;
 
-  // Set certificate promise
-  if (certificateUrl) {
-    // Fetch certificate from server (recommended)
-    qz.security.setCertificatePromise(function(resolve, reject) {
-      fetch(certificateUrl, {
-        cache: 'no-store',
-        headers: { 'Content-Type': 'text/plain' }
-      })
-        .then(function(data) {
-          data.ok ? resolve(data.text()) : reject(data.text());
-        })
-        .catch(reject);
-    });
-  } else if (useDemoCert) {
-    // Use demo certificate (for testing)
-    qz.security.setCertificatePromise(function(resolve, reject) {
-      resolve(certificate);
-    });
-  }
-
-  // Set signature promise
+  // Only set certificate if we have signing capability
+  // QZ Tray requires signatures when a certificate is set
   if (signatureUrl) {
-    // Server-side signing (recommended - more secure)
+    // We have signing capability - set both certificate and signature
+    
+    // Set certificate promise
+    if (certificateUrl) {
+      // Fetch certificate from server (recommended)
+      qz.security.setCertificatePromise(function(resolve, reject) {
+        fetch(certificateUrl, {
+          cache: 'no-store',
+          headers: { 'Content-Type': 'text/plain' }
+        })
+          .then(function(data) {
+            data.ok ? resolve(data.text()) : reject(data.text());
+          })
+          .catch(reject);
+      });
+    } else if (useDemoCert) {
+      // Use demo certificate
+      qz.security.setCertificatePromise(function(resolve, reject) {
+        resolve(certificate);
+      });
+    }
+
+    // Set signature promise (server-side signing)
     qz.security.setSignatureAlgorithm("SHA512");
     qz.security.setSignaturePromise(function(toSign) {
       return function(resolve, reject) {
@@ -99,15 +102,10 @@ export function configureQZSigning(options = {}) {
       };
     });
   } else {
-    // No signing - will show warnings but still works
-    // For production, implement server-side signing
-    qz.security.setSignaturePromise(function(toSign) {
-      return function(resolve, reject) {
-        // Without signing, QZ Tray will show warnings
-        // But printing will still work
-        resolve();
-      };
-    });
+    // No signing URL - don't set certificate to avoid signature requirement
+    // QZ Tray will work without certificate (may show warnings but printing works)
+    console.warn('QZ Tray: No signature URL configured. Certificate signing disabled. Printing will work but may show warnings. For production, set up server-side signing.');
+    // Don't set certificate or signature - allows printing without signature errors
   }
 
   certificateSigningConfigured = true;

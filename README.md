@@ -104,6 +104,20 @@ Before you begin, ensure you have the following installed:
 
 ## 🚀 Installation
 
+### Option 1: Easy Installer (Recommended for Non-Technical Users) ⭐
+
+1. **Download and run the installer** (`Restaurant POS Installer Setup.exe`)
+2. **Follow the on-screen instructions**
+3. The installer will automatically:
+   - Check for Node.js (prompts to install if missing)
+   - Install all dependencies
+   - Create configuration file
+   - Create desktop shortcut
+
+📘 **[Complete Installer Guide →](INSTALLER_GUIDE.md)**
+
+### Option 2: Manual Installation
+
 ### 1. Clone the Repository
 
 ```bash

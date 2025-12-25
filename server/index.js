@@ -7,6 +7,7 @@ import orderRoutes from './routes/orders.js';
 import discountRoutes from './routes/discounts.js';
 import authRoutes from './routes/auth.js';
 import deployRoutes from './routes/deploy.js';
+import qzRoutes from './routes/qz.js';
 
 dotenv.config();
 
@@ -67,6 +68,7 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/discounts', discountRoutes);
 app.use('/api/deploy', deployRoutes);
+app.use('/api/qz', qzRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

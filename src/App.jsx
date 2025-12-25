@@ -25,13 +25,13 @@ const queryClient = new QueryClient({
 function App() {
   // Initialize QZ Tray certificate signing on app load
   useEffect(() => {
-    // Configure QZ Tray with demo certificate (works out of the box)
+    // Configure QZ Tray without certificate signing for now
+    // This allows printing to work without "signature missing" errors
     // For production, set up server-side signing (see QZ_TRAY_SIGNING_SETUP.md)
     configureQZSigning({
-      useDemoCert: true, // Uses QZ Tray demo certificate
-      // For production, uncomment and configure:
-      // certificateUrl: '/api/qz/certificate', // URL to fetch certificate
-      // signatureUrl: '/api/qz/sign', // URL to sign messages
+      certificateUrl: '/api/qz/certificate', // Fetch certificate from server
+      signatureUrl: '/api/qz/sign', // Sign messages on server
+      useDemoCert: false // Use server-side signing
     });
   }, []);
 

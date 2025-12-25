@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant POS Installer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+      padding: 20px;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 40px;
+      height: calc(100vh - 40px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .step {
+      margin-bottom: 25px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .step-title {
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .step-content {
+      color: #666;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+
+    .status.checking {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .status.installed {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status.missing {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .status.warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .progress {
+      width: 100%;
+      height: 6px;
+      background: #e9ecef;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .output {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 6px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
+      max-height: 150px;
+      overflow-y: auto;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .output.show {
+      display: block;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .icon {
+      width: 20px;
+      height: 20px;
+      display: inline-block;
+    }
+
+    .spinner {
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #667eea;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-left: 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .link {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .link:hover {
+      text-decoration: underline;
+    }
+
+    .success-message {
+      background: #d4edda;
+      color: #155724;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 20px;
+      display: none;
+    }
+
+    .success-message.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🍽️ Restaurant POS Installer</h1>
+    <p class="subtitle">Easy setup for non-technical users</p>
+
+    <div class="step">
+      <div class="step-title">
+        <span>1. Node.js</span>
+        <span class="status checking" id="node-status">Checking...</span>
+      </div>
+      <div class="step-content" id="node-content">
+        Checking Node.js installation...
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">
+        <span>2. MongoDB</span>
+        <span class="status checking" id="mongodb-status">Checking...</span>
+      </div>
+      <div class="step-content" id="mongodb-content">
+        Checking MongoDB installation...
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">
+        <span>3. Dependencies</span>
+        <span class="status checking" id="deps-status">Waiting...</span>
+      </div>
+      <div class="step-content" id="deps-content">
+        Will install npm packages after prerequisites are met.
+      </div>
+      <div class="progress">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="output" id="install-output"></div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">
+        <span>4. Configuration</span>
+        <span class="status checking" id="config-status">Waiting...</span>
+      </div>
+      <div class="step-content" id="config-content">
+        Will create configuration file.
+      </div>
+    </div>
+
+    <button id="install-btn" disabled>Install</button>
+
+    <div class="success-message" id="success-message">
+      ✅ Installation complete! You can now start the Restaurant POS system.
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    let projectPath = '';
+
+    async function checkPrerequisites() {
+      // Get project path
+      projectPath = await ipcRenderer.invoke('get-project-path');
+      
+      // Check Node.js
+      const nodeCheck = await ipcRenderer.invoke('check-node');
+      updateStatus('node', nodeCheck.installed && nodeCheck.valid, 
+        nodeCheck.installed 
+          ? `Node.js ${nodeCheck.version} installed` 
+          : 'Node.js not found. Please install from <a href="https://nodejs.org" class="link" target="_blank">nodejs.org</a>',
+        nodeCheck.installed && !nodeCheck.valid ? 'warning' : null
+      );
+
+      // Check MongoDB
+      const mongoCheck = await ipcRenderer.invoke('check-mongodb');
+      updateStatus('mongodb', mongoCheck.installed, 
+        mongoCheck.installed 
+          ? 'MongoDB is installed' + (mongoCheck.running ? ' and running' : ' (service may need to be started)')
+          : 'MongoDB not found. Please install from <a href="https://www.mongodb.com/try/download/community" class="link" target="_blank">mongodb.com</a> or use MongoDB Atlas (cloud)'
+      );
+
+      // Check npm
+      const npmCheck = await ipcRenderer.invoke('check-npm');
+      
+      // Enable install button if Node.js is installed
+      const installBtn = document.getElementById('install-btn');
+      if (nodeCheck.installed && nodeCheck.valid) {
+        installBtn.disabled = false;
+        installBtn.textContent = 'Install Dependencies';
+      } else {
+        installBtn.disabled = true;
+        installBtn.textContent = 'Please install Node.js first';
+      }
+    }
+
+    function updateStatus(name, installed, message, type = null) {
+      const statusEl = document.getElementById(`${name}-status`);
+      const contentEl = document.getElementById(`${name}-content`);
+      
+      statusEl.className = 'status';
+      if (installed) {
+        statusEl.classList.add('installed');
+        statusEl.textContent = '✓ Installed';
+      } else {
+        statusEl.classList.add(type || 'missing');
+        statusEl.textContent = type === 'warning' ? '⚠ Warning' : '✗ Missing';
+      }
+      
+      contentEl.innerHTML = message;
+    }
+
+    document.getElementById('install-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('install-btn');
+      btn.disabled = true;
+      btn.textContent = 'Installing...';
+
+      const outputEl = document.getElementById('install-output');
+      outputEl.classList.add('show');
+      outputEl.textContent = 'Starting installation...\n';
+
+      // Listen for install output
+      ipcRenderer.on('install-output', (event, data) => {
+        outputEl.textContent += data;
+        outputEl.scrollTop = outputEl.scrollHeight;
+      });
+
+      try {
+        // Install dependencies
+        updateStatus('deps', false, 'Installing npm packages...', 'checking');
+        document.getElementById('deps-status').textContent = 'Installing...';
+        
+        await ipcRenderer.invoke('install-dependencies', projectPath);
+        
+        updateStatus('deps', true, 'All dependencies installed successfully!');
+        document.getElementById('progress-bar').style.width = '50%';
+
+        // Create .env file if it doesn't exist
+        const envExists = await ipcRenderer.invoke('check-env-file', projectPath);
+        if (!envExists) {
+          updateStatus('config', false, 'Creating configuration file...', 'checking');
+          document.getElementById('config-status').textContent = 'Configuring...';
+          
+          // Generate secret on main process
+          const secret = await ipcRenderer.invoke('generate-secret');
+          
+          const envData = {
+            PORT: '5000',
+            MONGODB_URI: 'mongodb://localhost:27017/restaurant-pos',
+            JWT_SECRET: secret,
+            VITE_API_URL: 'http://localhost:5000/api'
+          };
+          
+          await ipcRenderer.invoke('create-env-file', projectPath, envData);
+          updateStatus('config', true, 'Configuration file created successfully!');
+        } else {
+          updateStatus('config', true, 'Configuration file already exists.');
+        }
+        
+        document.getElementById('progress-bar').style.width = '100%';
+
+        // Create shortcut
+        await ipcRenderer.invoke('create-shortcut', projectPath);
+
+        document.getElementById('success-message').classList.add('show');
+        btn.textContent = 'Installation Complete!';
+        btn.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+
+      } catch (error) {
+        outputEl.textContent += `\n\nError: ${error.error || error.message}`;
+        updateStatus('deps', false, 'Installation failed. Check output above.');
+        btn.disabled = false;
+        btn.textContent = 'Retry Installation';
+      }
+    });
+
+
+    // Start checking prerequisites
+    checkPrerequisites();
+  </script>
+</body>
+</html>
+
