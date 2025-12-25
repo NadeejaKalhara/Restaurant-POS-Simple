@@ -22,6 +22,7 @@ A fully featured, modern Restaurant Point of Sale (POS) system designed specific
 - [Prerequisites](#-prerequisites)
 - [Installation](#-installation)
 - [Configuration](#-configuration)
+- [Client Setup Guide](#-client-setup-guide) 👥
 - [Usage](#-usage)
 - [API Documentation](#-api-documentation)
 - [Project Structure](#-project-structure)
@@ -207,6 +208,28 @@ npm run preview
 # Start production server
 npm start
 ```
+
+---
+
+## 👥 Client Setup Guide
+
+For restaurant staff and end-users setting up the POS system with receipt printing:
+
+📘 **[Complete Client Setup Guide →](CLIENT_SETUP_GUIDE.md)**
+
+This guide includes:
+- ✅ Step-by-step QZ Tray installation
+- ✅ XP k200L printer setup (80mm thermal)
+- ✅ Connection configuration
+- ✅ Testing procedures
+- ✅ Troubleshooting common issues
+- ✅ Daily operations checklist
+
+**Quick Start:**
+1. Install QZ Tray from [qz.io/download](https://qz.io/download/)
+2. Connect and install your XP k200L printer
+3. Grant certificate permission when prompted
+4. Start printing receipts automatically!
 
 ---
 
