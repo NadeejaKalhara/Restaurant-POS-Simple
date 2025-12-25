@@ -4,6 +4,16 @@ Quick guide to get and install the QZ Tray certificate to fix "Untrusted website
 
 **For production site:** https://shan.cynex.lk/
 
+## ⚠️ Important: Two Different Certificates
+
+**Your website SSL certificate (Let's Encrypt) ≠ QZ Tray certificate**
+
+- **Website SSL Certificate**: Used for HTTPS encryption (already working on https://shan.cynex.lk/)
+- **QZ Tray Certificate**: Required separately for QZ Tray to communicate securely with your browser
+- **You need BOTH**: Website SSL for HTTPS + QZ Tray certificate for printing
+
+**Your website's SSL certificate will NOT work for QZ Tray** - you must generate/install the QZ Tray certificate separately.
+
 ---
 
 ## 🎯 Quick Steps (3 Minutes)
