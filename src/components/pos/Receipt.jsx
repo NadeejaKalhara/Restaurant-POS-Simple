@@ -31,11 +31,11 @@ export default function Receipt({
       const timer = setTimeout(async () => {
         try {
           await printReceipt(printRef.current, {
-            onSuccess: () => {
-              toast.success('Receipt printed via QZ Tray');
+            onSuccess: (result) => {
+              toast.success(`Receipt sent to ${result.printer || 'printer'} successfully`);
             },
             onError: (error) => {
-              toast.error('Print failed. Please ensure QZ Tray is running and certificate is installed.');
+              toast.error(`Print failed: ${error.message || 'Please ensure QZ Tray is running and certificate is installed.'}`);
               console.error('Print error:', error);
             }
           });
@@ -58,11 +58,11 @@ export default function Receipt({
     
     try {
       await printReceipt(printRef.current, {
-        onSuccess: () => {
-          toast.success('Receipt printed via QZ Tray');
+        onSuccess: (result) => {
+          toast.success(`Receipt sent to ${result.printer || 'printer'} successfully`);
         },
         onError: (error) => {
-          toast.error('Print failed. Please ensure QZ Tray is running and certificate is installed.');
+          toast.error(`Print failed: ${error.message || 'Please ensure QZ Tray is running and certificate is installed.'}`);
           console.error('Print error:', error);
         }
       });

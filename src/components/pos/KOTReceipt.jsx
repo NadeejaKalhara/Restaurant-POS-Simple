@@ -17,8 +17,8 @@ export default function KOTReceipt({
       const timer = setTimeout(async () => {
         try {
           await printReceipt(printRef.current, {
-            onSuccess: () => {
-              toast.success('KOT printed via QZ Tray');
+            onSuccess: (result) => {
+              toast.success(`KOT sent to ${result.printer || 'printer'} successfully`);
               // Callback after print
               if (onPrintComplete) {
                 setTimeout(() => {
@@ -27,7 +27,7 @@ export default function KOTReceipt({
               }
             },
             onError: (error) => {
-              toast.error('KOT print failed. Please ensure QZ Tray is running.');
+              toast.error(`KOT print failed: ${error.message || 'Please ensure QZ Tray is running.'}`);
               console.error('Print error:', error);
               // Callback even on error
               if (onPrintComplete) {

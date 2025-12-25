@@ -17,6 +17,12 @@ let qzConnecting = false;
 let defaultPrinterName = null; // Can be set to 'XP k200L' or specific printer name
 let certificateSigningConfigured = false;
 
+// Storage keys for printer settings
+const STORAGE_KEYS = {
+  SELECTED_PRINTER: 'qz_selected_printer',
+  PRINTER_SETTINGS: 'qz_printer_settings'
+};
+
 /**
  * QZ Tray Demo Certificate (for testing)
  * In production, load from server or use your own certificate
@@ -183,13 +189,102 @@ export function setDefaultPrinter(printerName) {
 }
 
 /**
+ * Get all available printers
+ */
+export async function getAllPrinters() {
+  try {
+    const connected = await connectQZ();
+    if (!connected) {
+      throw new Error('QZ Tray not available');
+    }
+    const printers = await qz.printers.find();
+    return printers || [];
+  } catch (error) {
+    console.error('Error getting printers:', error);
+    return [];
+  }
+}
+
+/**
+ * Get saved printer from localStorage
+ */
+export function getSavedPrinter() {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.SELECTED_PRINTER);
+  } catch (error) {
+    console.error('Error getting saved printer:', error);
+    return null;
+  }
+}
+
+/**
+ * Save selected printer to localStorage
+ */
+export function savePrinter(printerName) {
+  try {
+    if (printerName) {
+      localStorage.setItem(STORAGE_KEYS.SELECTED_PRINTER, printerName);
+      defaultPrinterName = printerName;
+    }
+  } catch (error) {
+    console.error('Error saving printer:', error);
+  }
+}
+
+/**
+ * Get printer settings from localStorage
+ */
+export function getPrinterSettings(printerName = null) {
+  try {
+    const printer = printerName || getSavedPrinter();
+    if (!printer) return null;
+    
+    const settings = localStorage.getItem(STORAGE_KEYS.PRINTER_SETTINGS);
+    if (settings) {
+      const allSettings = JSON.parse(settings);
+      return allSettings[printer] || null;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting printer settings:', error);
+    return null;
+  }
+}
+
+/**
+ * Save printer settings to localStorage
+ */
+export function savePrinterSettings(printerName, settings) {
+  try {
+    if (!printerName || !settings) return;
+    
+    const existing = localStorage.getItem(STORAGE_KEYS.PRINTER_SETTINGS);
+    const allSettings = existing ? JSON.parse(existing) : {};
+    allSettings[printerName] = settings;
+    localStorage.setItem(STORAGE_KEYS.PRINTER_SETTINGS, JSON.stringify(allSettings));
+  } catch (error) {
+    console.error('Error saving printer settings:', error);
+  }
+}
+
+/**
  * Get default printer or prompt user to select
- * Prioritizes XP k200L printer if available
+ * Prioritizes saved printer, then XP k200L printer if available
  */
 export async function getPrinter() {
   try {
     const printers = await qz.printers.find();
     if (printers && printers.length > 0) {
+      // Priority 0: Check for saved printer preference
+      const savedPrinter = getSavedPrinter();
+      if (savedPrinter) {
+        const found = printers.find(p => 
+          p.toLowerCase() === savedPrinter.toLowerCase() ||
+          p.toLowerCase().includes(savedPrinter.toLowerCase())
+        );
+        if (found) return found;
+      }
+      
       // If default printer name is set, try to find exact match first
       if (defaultPrinterName) {
         const exactMatch = printers.find(p => 
@@ -246,16 +341,37 @@ export async function getPrinter() {
 }
 
 /**
- * Print HTML content using QZ Tray
+ * Get default print settings for a printer
  */
-export async function printWithQZ(htmlContent, printerName = null) {
+function getDefaultPrintSettings(printer) {
+  const isPDFPrinter = printer.toLowerCase().includes('pdf');
+  
+  return {
+    size: { 
+      width: isPDFPrinter ? 595 : 226.77,  // A4 width for PDF, 80mm for thermal
+      height: null     // Auto height
+    },
+    margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    orientation: 'portrait',
+    colorType: isPDFPrinter ? 'color' : 'grayscale',
+    interpolation: 'nearest-neighbor',
+    jobName: isPDFPrinter ? 'POS Receipt (PDF Test)' : 'POS Receipt'
+  };
+}
+
+/**
+ * Print HTML content using QZ Tray
+ * Returns a promise that resolves with success info or rejects with error
+ */
+export async function printWithQZ(htmlContent, printerName = null, options = {}) {
+  let printer = null;
   try {
     const connected = await connectQZ();
     if (!connected) {
       throw new Error('QZ Tray not available');
     }
 
-    const printer = printerName || await getPrinter();
+    printer = printerName || await getPrinter();
     if (!printer) {
       throw new Error('No printer found');
     }
@@ -267,41 +383,28 @@ export async function printWithQZ(htmlContent, printerName = null) {
       console.log('Using PDF printer for testing:', printer);
     }
 
-    // Create print configuration optimized for 80mm thermal printer (XP k200L)
-    // Note: QZ Tray expects numeric values for size, not strings
-    const config = qz.configs.create(printer, {
-      // Paper size: 80mm width (3.15 inches = 302.4 points)
-      // QZ Tray uses points (1/72 inch) as default unit
-      // 80mm = 3.1496 inches = 226.77 points
-      // For PDF printers, use A4 width (595 points) for better testing
-      size: { 
-        width: isPDFPrinter ? 595 : 226.77,  // A4 width for PDF, 80mm for thermal
-        height: null     // Auto height (null instead of 'auto')
-      },
-      // Margins optimized for thermal paper (in points)
-      margins: { top: 0, bottom: 0, left: 0, right: 0 },
-      // Units: points (default, no need to specify)
-      // Orientation: portrait (default)
-      orientation: 'portrait',
-      // Color mode: grayscale (thermal printers) or color (for PDF testing)
-      colorType: isPDFPrinter ? 'color' : 'grayscale',
-      // Interpolation: nearest neighbor for crisp text
-      interpolation: 'nearest-neighbor',
-      // Job name
-      jobName: isPDFPrinter ? 'POS Receipt (PDF Test)' : 'POS Receipt'
-    });
+    // Get saved printer settings or use defaults
+    const savedSettings = getPrinterSettings(printer);
+    const defaultSettings = getDefaultPrintSettings(printer);
+    const printSettings = savedSettings ? { ...defaultSettings, ...savedSettings } : defaultSettings;
+
+    // Create print configuration
+    const config = qz.configs.create(printer, printSettings);
     
-    // Wrap HTML content optimized for 80mm thermal paper
+    // Wrap HTML content optimized for thermal paper
+    const paperWidth = printSettings.size?.width || (isPDFPrinter ? 595 : 226.77);
+    const paperWidthMM = Math.round((paperWidth / 72) * 25.4); // Convert points to mm
+    
     const fullHtml = `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="UTF-8">
-          <meta name="viewport" content="width=80mm, initial-scale=1.0">
+          <meta name="viewport" content="width=${paperWidthMM}mm, initial-scale=1.0">
           <style>
             @page {
               margin: 0;
-              size: 80mm auto;
+              size: ${paperWidthMM}mm auto;
             }
             * {
               -webkit-print-color-adjust: exact !important;
@@ -315,8 +418,8 @@ export async function printWithQZ(htmlContent, printerName = null) {
               font-family: 'Courier New', monospace;
               font-size: 12pt;
               line-height: 1.4;
-              width: 80mm;
-              max-width: 80mm;
+              width: ${paperWidthMM}mm;
+              max-width: ${paperWidthMM}mm;
               color: #000;
               background: #fff;
             }
@@ -341,43 +444,79 @@ export async function printWithQZ(htmlContent, printerName = null) {
       </html>
     `;
 
-    await qz.print(config, [
+    // Print and wait for completion
+    // QZ Tray's print() returns a promise that resolves when print job is sent successfully
+    // Note: This doesn't guarantee the printer actually printed, but that the job was sent
+    const result = await qz.print(config, [
       {
         type: 'html',
         format: 'html',
         data: fullHtml,
         options: {
-          copies: 1,
-          jobName: 'POS Receipt - XP k200L'
+          copies: options.copies || 1,
+          jobName: printSettings.jobName || 'POS Receipt'
         }
       }
     ]);
     
-    return true;
+    // Return success information
+    return {
+      success: true,
+      printer: printer,
+      message: 'Print job sent successfully',
+      result: result
+    };
   } catch (error) {
     console.error('QZ Print error:', error);
-    throw error;
+    // Return error information
+    throw {
+      success: false,
+      printer: printer || printerName || 'unknown',
+      message: error.message || 'Print failed',
+      error: error
+    };
   }
 }
 
 /**
  * Print receipt content - QZ Tray only (no browser print fallback)
+ * Returns print success status via callbacks and promise
  */
 export async function printReceipt(element, options = {}) {
   const { 
     printerName = null,
     onSuccess = null,
-    onError = null
+    onError = null,
+    copies = 1
   } = options;
 
   try {
     const htmlContent = element.innerHTML;
-    await printWithQZ(htmlContent, printerName);
-    if (onSuccess) onSuccess('Printed via QZ Tray');
-    return true;
+    const result = await printWithQZ(htmlContent, printerName, { copies });
+    
+    // Call success callback with detailed information
+    if (onSuccess) {
+      onSuccess({
+        success: true,
+        printer: result.printer,
+        message: result.message
+      });
+    }
+    
+    return result;
   } catch (error) {
     console.error('QZ Tray print failed:', error);
-    if (onError) onError(error);
+    
+    // Call error callback with error information
+    if (onError) {
+      onError({
+        success: false,
+        printer: error.printer || printerName || 'unknown',
+        message: error.message || 'Print failed',
+        error: error.error || error
+      });
+    }
+    
     throw error; // Re-throw so caller knows it failed
   }
 }
