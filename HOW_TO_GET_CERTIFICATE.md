@@ -2,6 +2,8 @@
 
 Quick guide to get and install the QZ Tray certificate to fix "Untrusted website" error.
 
+**For production site:** https://shan.cynex.lk/
+
 ---
 
 ## 🎯 Quick Steps (3 Minutes)
@@ -19,15 +21,19 @@ Quick guide to get and install the QZ Tray certificate to fix "Untrusted website
 1. In the QZ Tray window, look for tabs at the top
 2. Click **"Security"** tab (or **"Certificates"** tab)
 3. You'll see one of these buttons - click it:
-   - ✅ **"Generate Certificate"** (if you see this)
-   - ✅ **"Create Certificate"** (if you see this)
+   - ✅ **"Generate Certificate"** (if you see this) - **Click this for first time setup**
+   - ✅ **"Create Certificate"** (if you see this) - **Same as Generate**
    - ✅ **"Export Certificate"** (if certificate already exists)
 
-4. **Save the file:**
+4. **Save the certificate file:**
    - Click **"Save"** or **"Browse"**
    - Choose **Desktop** (easiest location)
+   - **File name:** You can name it `qz-certificate.p12` or `shan-cynex-cert.p12`
    - Click **"Save"**
-   - File will be named something like: `qz-cert.p12` or `certificate.crt`
+   - File will be saved as `.p12`, `.crt`, or `.cer` format
+   - **Remember where you saved it!**
+
+**Note:** This certificate works for all HTTPS sites including https://shan.cynex.lk/
 
 ---
 
@@ -75,21 +81,34 @@ Quick guide to get and install the QZ Tray certificate to fix "Untrusted website
 3. Look for certificate files
 4. If you find one, double-click it and follow Step 3 above
 
-### Option C: Use Localhost Instead (No Certificate Needed!)
+### Option C: Certificate File Location
 
-If your POS system can run on `localhost`:
-- Access it at: `http://localhost:3000` (or your port)
-- **No certificate needed!** QZ Tray works automatically on localhost
+If you can't find the button, the certificate might already exist:
+
+**Windows Certificate Location:**
+- `C:\Users\YourUsername\.qz\cert\` folder
+- Look for files: `auth-default.json`, `certificate.p12`, or similar
+
+**To export existing certificate:**
+1. Right-click QZ Tray → Options → Security tab
+2. Look for **"Export"** or **"Save Certificate"** button
+3. Save it to Desktop
+
+**Note for https://shan.cynex.lk/:** 
+- You need the certificate installed for HTTPS sites
+- Localhost doesn't require certificate, but production HTTPS sites do
 
 ---
 
 ## ✅ Test It
 
-1. Open your POS system
+1. Open your POS system at **https://shan.cynex.lk/**
 2. Try to print a receipt
 3. QZ Tray will ask for permission
 4. **"Allow" button should work now!** ✅
 5. Click **"Allow"** - receipt should print automatically
+
+**Important:** Make sure you're accessing the site via HTTPS (https://shan.cynex.lk/) not HTTP
 
 ---
 
