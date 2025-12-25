@@ -29,17 +29,19 @@ export default function Receipt({
     if (open && printRef.current && orderData) {
       // Small delay to ensure content is rendered before printing
       const timer = setTimeout(async () => {
-        await printReceipt(printRef.current, {
-          useQZ: true,
-          onSuccess: (method) => {
-            if (method === 'Printed via QZ Tray') {
+        try {
+          await printReceipt(printRef.current, {
+            onSuccess: () => {
               toast.success('Receipt printed via QZ Tray');
+            },
+            onError: (error) => {
+              toast.error('Print failed. Please ensure QZ Tray is running and certificate is installed.');
+              console.error('Print error:', error);
             }
-          },
-          onError: () => {
-            // Browser print fallback will be triggered automatically
-          }
-        });
+          });
+        } catch (error) {
+          toast.error('Print failed. Please check QZ Tray connection.');
+        }
       }, 300);
       
       return () => clearTimeout(timer);
@@ -54,19 +56,19 @@ export default function Receipt({
   const handlePrintReceipt = async () => {
     if (!printRef.current) return;
     
-    await printReceipt(printRef.current, {
-      useQZ: true,
-      onSuccess: (method) => {
-        if (method === 'Printed via QZ Tray') {
+    try {
+      await printReceipt(printRef.current, {
+        onSuccess: () => {
           toast.success('Receipt printed via QZ Tray');
-        } else {
-          toast.success('Receipt printed');
+        },
+        onError: (error) => {
+          toast.error('Print failed. Please ensure QZ Tray is running and certificate is installed.');
+          console.error('Print error:', error);
         }
-      },
-      onError: (error) => {
-        toast.error('Print failed. Please check your printer connection.');
-      }
-    });
+      });
+    } catch (error) {
+      toast.error('Print failed. Please check QZ Tray connection.');
+    }
   };
 
   const handlePrintKOT = () => {
@@ -155,7 +157,7 @@ export default function Receipt({
 
   return (
     <>
-      {/* Print-only receipt - rendered outside dialog for print */}
+      {/* Receipt content for QZ Tray printing */}
       <div ref={printRef} className="hidden print:block print:fixed print:inset-0 print:z-[9999] print:bg-white">
         <ReceiptContent />
       </div>

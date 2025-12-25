@@ -15,28 +15,36 @@ export default function KOTReceipt({
     if (printRef.current && orderItems && orderItems.length > 0) {
       // Small delay to ensure content is rendered before printing
       const timer = setTimeout(async () => {
-        await printReceipt(printRef.current, {
-          useQZ: true,
-          onSuccess: (method) => {
-            if (method === 'Printed via QZ Tray') {
+        try {
+          await printReceipt(printRef.current, {
+            onSuccess: () => {
               toast.success('KOT printed via QZ Tray');
+              // Callback after print
+              if (onPrintComplete) {
+                setTimeout(() => {
+                  onPrintComplete();
+                }, 500);
+              }
+            },
+            onError: (error) => {
+              toast.error('KOT print failed. Please ensure QZ Tray is running.');
+              console.error('Print error:', error);
+              // Callback even on error
+              if (onPrintComplete) {
+                setTimeout(() => {
+                  onPrintComplete();
+                }, 500);
+              }
             }
-            // Callback after print
-            if (onPrintComplete) {
-              setTimeout(() => {
-                onPrintComplete();
-              }, 500);
-            }
-          },
-          onError: () => {
-            // Browser print fallback will be triggered automatically
-            if (onPrintComplete) {
-              setTimeout(() => {
-                onPrintComplete();
-              }, 500);
-            }
+          });
+        } catch (error) {
+          toast.error('KOT print failed. Please check QZ Tray connection.');
+          if (onPrintComplete) {
+            setTimeout(() => {
+              onPrintComplete();
+            }, 500);
           }
-        });
+        }
       }, 100);
       
       return () => clearTimeout(timer);

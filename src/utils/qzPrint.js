@@ -2,15 +2,14 @@ import qz from 'qz-tray';
 
 /**
  * QZ Tray Print Utility
- * Handles POS printing via QZ Tray with fallback to browser print
+ * Handles POS printing exclusively via QZ Tray (no browser print fallback)
  * 
  * SETUP REQUIREMENTS:
  * 1. Install QZ Tray application from https://qz.io/download/
  * 2. QZ Tray must be running on the user's machine
  * 3. Application must be served over HTTPS or localhost
  * 4. User must grant permission when QZ Tray prompts for certificate
- * 
- * The system will automatically fall back to browser print if QZ Tray is not available.
+ * 5. QZ Tray certificate must be installed (see CLIENT_SETUP_GUIDE.md)
  */
 
 let qzConnected = false;
@@ -49,6 +48,16 @@ export async function connectQZ() {
     return true;
   } catch (error) {
     console.warn('QZ Tray not available:', error.message);
+    
+    // Check for certificate-related errors
+    if (error.message && (
+      error.message.includes('certificate') || 
+      error.message.includes('untrusted') ||
+      error.message.includes('invalid certificate')
+    )) {
+      console.warn('Certificate issue detected. Please install QZ Tray certificate. See CLIENT_SETUP_GUIDE.md Step 3');
+    }
+    
     qzConnected = false;
     qzConnecting = false;
     return false;
@@ -220,38 +229,24 @@ export async function printWithQZ(htmlContent, printerName = null) {
 }
 
 /**
- * Print receipt content - tries QZ Tray first, falls back to browser print
+ * Print receipt content - QZ Tray only (no browser print fallback)
  */
 export async function printReceipt(element, options = {}) {
   const { 
-    useQZ = true, 
     printerName = null,
     onSuccess = null,
     onError = null
   } = options;
 
-  // Try QZ Tray first if enabled
-  if (useQZ) {
-    try {
-      const htmlContent = element.innerHTML;
-      await printWithQZ(htmlContent, printerName);
-      if (onSuccess) onSuccess('Printed via QZ Tray');
-      return true;
-    } catch (error) {
-      console.warn('QZ Tray print failed, falling back to browser print:', error);
-      if (onError) onError(error);
-    }
-  }
-
-  // Fallback to browser print
   try {
-    window.print();
-    if (onSuccess) onSuccess('Printed via browser');
+    const htmlContent = element.innerHTML;
+    await printWithQZ(htmlContent, printerName);
+    if (onSuccess) onSuccess('Printed via QZ Tray');
     return true;
   } catch (error) {
-    console.error('Browser print failed:', error);
+    console.error('QZ Tray print failed:', error);
     if (onError) onError(error);
-    return false;
+    throw error; // Re-throw so caller knows it failed
   }
 }
 

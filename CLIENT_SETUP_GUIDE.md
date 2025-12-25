@@ -35,11 +35,74 @@ Simple step-by-step guide to set up automatic receipt printing with your XP k200
 
 ---
 
-### Step 3: Connect to POS (1 minute)
+### Step 3: Fix Certificate Issue (IMPORTANT)
+
+**If you see "Untrusted website" or "Invalid certificate" error:**
+
+📘 **Need simpler instructions?** See [HOW_TO_GET_CERTIFICATE.md](HOW_TO_GET_CERTIFICATE.md) for step-by-step visual guide.
+
+#### Method 1: Get and Install QZ Tray Certificate (Recommended)
+
+**Part A: Get the Certificate from QZ Tray**
+
+1. **Right-click QZ Tray icon** in system tray (bottom-right corner)
+2. Select **"Options"** or **"Settings"**
+3. Look for **"Security"** or **"Certificates"** tab and click it
+4. You'll see one of these options:
+   - **"Generate Certificate"** button - Click this
+   - **"Create Certificate"** button - Click this
+   - **"Export Certificate"** button - Click this if certificate already exists
+5. **Save the certificate file:**
+   - Choose a location (Desktop is easiest)
+   - File will be saved as `.p12`, `.crt`, or `.cer`
+   - Remember where you saved it!
+
+**Part B: Install the Certificate in Windows**
+
+1. **Find the certificate file** you just saved
+2. **Double-click the certificate file** (`.p12`, `.crt`, or `.cer`)
+3. **Certificate Import Wizard opens:**
+   - Click **"Next"**
+   - If asked for password, leave blank or enter the password you set
+   - Click **"Next"**
+4. **Select certificate store:**
+   - Choose **"Place all certificates in the following store"**
+   - Click **"Browse"** button
+   - Select **"Trusted Root Certification Authorities"**
+   - Click **"OK"**
+   - Click **"Next"**
+5. **Finish installation:**
+   - Click **"Finish"**
+   - Click **"Yes"** to the security warning (this is safe - it's your QZ Tray certificate)
+   - You should see "The import was successful"
+6. **Restart QZ Tray:**
+   - Right-click QZ Tray icon → **"Exit"**
+   - Open QZ Tray again from Start Menu
+7. **Test:** Try printing from your POS system - the "Allow" button should work now!
+
+**Alternative: If you can't find "Generate Certificate" button:**
+
+1. Right-click QZ Tray icon → **"Options"**
+2. Look for **"Advanced"** or **"About"** tab
+3. Some versions have certificate in: `C:\Users\YourName\.qz\cert\` folder
+4. Or check QZ Tray installation folder for certificate files
+
+#### Method 2: Use Localhost (Easier - No Certificate Needed)
+
+If your POS system can be accessed via `localhost` or `127.0.0.1`:
+- Open POS at `http://localhost:3000` (or your local port)
+- QZ Tray works without certificates on localhost
+- No certificate installation needed!
+
+✅ **Done when**: Certificate is installed OR using localhost
+
+---
+
+### Step 4: Connect to POS (1 minute)
 
 1. Open your POS system in browser
 2. When you print, QZ Tray will ask for permission
-3. Click **"Allow"** or **"Yes"**
+3. Click **"Allow"** or **"Yes"** (button should work now)
 4. Try printing a test receipt
 
 ✅ **Done when**: Receipts print automatically without print dialog
@@ -58,6 +121,8 @@ Simple step-by-step guide to set up automatic receipt printing with your XP k200
 
 | Problem | Solution |
 |---------|----------|
+| **"Untrusted website" / "Invalid certificate"** | **See Step 3 above** - Install QZ Tray certificate |
+| **"Allow" button is disabled** | Install certificate first (Step 3), then restart QZ Tray |
 | Receipts don't print | Check if QZ Tray icon is in system tray |
 | Print dialog appears | QZ Tray not running - restart it |
 | Wrong printer | Set XP k200L as default in Windows Settings > Printers |
@@ -81,9 +146,12 @@ Simple step-by-step guide to set up automatic receipt printing with your XP k200
 
 ## 💡 Tips
 
+- **No browser print popup needed** - Once QZ Tray is set up, receipts print automatically
+- **Certificate issue?** - Follow Step 3 carefully to install QZ Tray certificate
 - **Keep QZ Tray running** - It must stay open in the background
 - **Auto-start**: Right-click QZ Tray → Options → Enable "Start with Windows"
 - **Default printer**: Set XP k200L as default in Windows for best results
+- **Using localhost?** - If accessing via `localhost` or `127.0.0.1`, certificate is not required
 
 ---
 
