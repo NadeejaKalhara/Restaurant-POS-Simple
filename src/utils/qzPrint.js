@@ -207,11 +207,11 @@ export async function getPrinter() {
       );
       if (xpK200L) return xpK200L;
       
-      // Priority 2: Other receipt/thermal printers (exclude virtual printers)
-      const virtualPrinters = ['anydesk', 'pdf', 'fax', 'microsoft print to pdf', 'onenote', 'snagit', 'xps', 'send to'];
+      // Priority 2: Other receipt/thermal printers (exclude virtual printers except PDF for testing)
+      const virtualPrinters = ['anydesk', 'fax', 'onenote', 'snagit', 'xps', 'send to'];
       const receiptPrinter = printers.find(p => {
         const pLower = p.toLowerCase();
-        // Skip virtual printers
+        // Skip virtual printers (but allow PDF for testing)
         if (virtualPrinters.some(vp => pLower.includes(vp))) return false;
         // Look for real printers
         return pLower.includes('receipt') || 
@@ -220,6 +220,16 @@ export async function getPrinter() {
                pLower.includes('xp');
       });
       if (receiptPrinter) return receiptPrinter;
+      
+      // Priority 3: PDF printer for testing (if no real printer found)
+      const pdfPrinter = printers.find(p => {
+        const pLower = p.toLowerCase();
+        return pLower.includes('pdf') || pLower.includes('microsoft print to pdf');
+      });
+      if (pdfPrinter) {
+        console.log('No real printer found. Using PDF printer for testing:', pdfPrinter);
+        return pdfPrinter;
+      }
       
       // Fallback: first non-virtual printer
       const realPrinter = printers.find(p => {
@@ -250,14 +260,22 @@ export async function printWithQZ(htmlContent, printerName = null) {
       throw new Error('No printer found');
     }
 
+    // Check if this is a PDF printer for testing
+    const isPDFPrinter = printer.toLowerCase().includes('pdf');
+    
+    if (isPDFPrinter) {
+      console.log('Using PDF printer for testing:', printer);
+    }
+
     // Create print configuration optimized for 80mm thermal printer (XP k200L)
     // Note: QZ Tray expects numeric values for size, not strings
     const config = qz.configs.create(printer, {
       // Paper size: 80mm width (3.15 inches = 302.4 points)
       // QZ Tray uses points (1/72 inch) as default unit
       // 80mm = 3.1496 inches = 226.77 points
+      // For PDF printers, use A4 width (595 points) for better testing
       size: { 
-        width: 226.77,  // 80mm in points
+        width: isPDFPrinter ? 595 : 226.77,  // A4 width for PDF, 80mm for thermal
         height: null     // Auto height (null instead of 'auto')
       },
       // Margins optimized for thermal paper (in points)
@@ -265,12 +283,12 @@ export async function printWithQZ(htmlContent, printerName = null) {
       // Units: points (default, no need to specify)
       // Orientation: portrait (default)
       orientation: 'portrait',
-      // Color mode: grayscale (thermal printers)
-      colorType: 'grayscale',
+      // Color mode: grayscale (thermal printers) or color (for PDF testing)
+      colorType: isPDFPrinter ? 'color' : 'grayscale',
       // Interpolation: nearest neighbor for crisp text
       interpolation: 'nearest-neighbor',
       // Job name
-      jobName: 'POS Receipt'
+      jobName: isPDFPrinter ? 'POS Receipt (PDF Test)' : 'POS Receipt'
     });
     
     // Wrap HTML content optimized for 80mm thermal paper
