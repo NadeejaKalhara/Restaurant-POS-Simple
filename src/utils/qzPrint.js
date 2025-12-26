@@ -514,17 +514,43 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     console.log('[QZ Print] Config object:', JSON.stringify(config, null, 2));
     
     // Create print data
+    // QZ Tray may prepend the current page URL to HTML data in some cases
+    // Ensure HTML is self-contained and doesn't contain relative URLs that might trigger this
+    console.log('[QZ Print] HTML data length:', fullHtml.length);
+    console.log('[QZ Print] HTML starts with:', fullHtml.substring(0, 50));
+    
+    // Check if HTML contains the domain (which shouldn't happen)
+    if (fullHtml.includes('shan.cynex.lk')) {
+      console.warn('[QZ Print] WARNING: HTML contains domain name. This may cause issues.');
+    }
+    
+    // Ensure HTML starts with <!DOCTYPE or <html, not a URL
+    const trimmedHtml = fullHtml.trim();
+    if (!trimmedHtml.startsWith('<!DOCTYPE') && !trimmedHtml.startsWith('<html')) {
+      console.error('[QZ Print] ERROR: HTML does not start with expected tags:', trimmedHtml.substring(0, 100));
+    }
+    
+    // Use direct HTML string - QZ Tray should handle it correctly
+    // The issue in the logs suggests QZ Tray is prepending the URL, which might be a QZ Tray bug
+    // or configuration issue
     const printData = [
       {
         type: 'html',
         format: 'html',
-        data: fullHtml,
+        data: fullHtml, // Direct HTML string
         options: {
           copies: options.copies || 1,
           jobName: printSettings.jobName || 'POS Receipt'
         }
       }
     ];
+    
+    console.log('[QZ Print] Print data prepared:', {
+      type: printData[0].type,
+      format: printData[0].format,
+      dataLength: printData[0].data.length,
+      dataFirstChars: printData[0].data.substring(0, 80).replace(/\s+/g, ' ')
+    });
 
     console.log('[QZ Print] Print data prepared, length:', fullHtml.length, 'chars');
     console.log('[QZ Print] Calling qz.print()...');
