@@ -446,8 +446,7 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     // TESTING: Disable silent mode for PDF printers to show save dialog
     const configOptions = { ...printSettings };
     if (isPDFPrinter || printer.toLowerCase().includes('microsoft print to pdf')) {
-      configOptions.silent = false; // Force save dialog to appear for testing
-      console.log('[QZ Print] TEST MODE: Silent mode disabled for PDF printer - save dialog will appear');
+      configOptions.silent = true; // Force save dialog to appear for testing
     }
     const config = qz.configs.create(printer, configOptions);
     
