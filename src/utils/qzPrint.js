@@ -456,29 +456,7 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     }
 
     console.log('[QZ Print] Attempting to print to:', printer);
-    console.log('[QZ Print] Printer name type:', typeof printer);
-    console.log('[QZ Print] Printer name length:', printer?.length);
     console.log('[QZ Print] All available printers:', await qz.printers.find());
-    
-    // Verify printer name is exactly what QZ Tray expects
-    const allPrintersCheck = await qz.printers.find();
-    const printerExists = allPrintersCheck.some(p => p === printer);
-    if (!printerExists) {
-      console.warn('[QZ Print] WARNING: Printer name does not exactly match any available printer');
-      console.warn('[QZ Print] Requested printer:', printer);
-      console.warn('[QZ Print] Available printers:', allPrintersCheck);
-      const closeMatch = allPrintersCheck.find(p => 
-        p.toLowerCase() === printer.toLowerCase() ||
-        p.toLowerCase().includes(printer.toLowerCase()) ||
-        printer.toLowerCase().includes(p.toLowerCase())
-      );
-      if (closeMatch) {
-        console.warn('[QZ Print] Found close match, using:', closeMatch);
-        printer = closeMatch;
-      } else {
-        throw new Error(`Printer "${printer}" not found in available printers: ${allPrintersCheck.join(', ')}`);
-      }
-    }
 
     // Check printer status before printing
     const status = await checkPrinterStatus(printer);
@@ -686,14 +664,10 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     console.log('[QZ Print] Calling qz.print()...');
     console.log('[QZ Print] Config details:', {
       printer: config.printer?.name || printer,
-      hasOptions: !!config.options,
-      configKeys: Object.keys(config || {})
+      hasOptions: !!config.options
     });
 
     try {
-      // Try printing with full config first
-      console.log('[QZ Print] Attempting print with full configuration...');
-      
       // Wrap print call with better error handling
       const printPromise = qz.print(config, printData).catch(error => {
         // Catch any immediate errors
@@ -719,40 +693,11 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
           console.error('[QZ Print]   1. Printer driver issue');
           console.error('[QZ Print]   2. Invalid print configuration');
           console.error('[QZ Print]   3. QZ Tray internal error (check QZ Tray logs)');
-          console.error('[QZ Print] Attempting fallback with minimal config...');
-          reject(new Error('TIMEOUT_FALLBACK')); // Special error to trigger fallback
+          reject(new Error('Print job timed out after 15 seconds. The job was not queued. Check QZ Tray logs and printer configuration.'));
         }, 15000);
       });
 
-      let printResult;
-      try {
-        printResult = await Promise.race([printPromise, timeoutPromise]);
-      } catch (timeoutError) {
-        // If timeout, try with minimal config as fallback
-        if (timeoutError.message === 'TIMEOUT_FALLBACK') {
-          console.log('[QZ Print] Trying fallback: minimal configuration...');
-          const minimalConfig = qz.configs.create(printer, {
-            jobName: printSettings.jobName || 'POS Receipt'
-          });
-          
-          console.log('[QZ Print] Minimal config created:', {
-            printer: minimalConfig?.printer?.name || printer
-          });
-          
-          // Try again with minimal config
-          const fallbackPromise = qz.print(minimalConfig, printData);
-          const fallbackTimeout = new Promise((_, reject) => {
-            setTimeout(() => {
-              reject(new Error('Fallback print also timed out. Check QZ Tray logs and printer configuration.'));
-            }, 10000);
-          });
-          
-          printResult = await Promise.race([fallbackPromise, fallbackTimeout]);
-          console.log('[QZ Print] Fallback print succeeded:', printResult);
-        } else {
-          throw timeoutError;
-        }
-      }
+      const printResult = await Promise.race([printPromise, timeoutPromise]);
       
       console.log('[QZ Print] Print job completed. QZ Tray response:', printResult);
       console.log('[QZ Print] Response type:', typeof printResult);
@@ -892,199 +837,19 @@ export async function printReceipt(element, options = {}) {
 }
 
 /**
- * Minimal test print - absolute simplest configuration to test basic printing
- */
-export async function testPrintMinimal(printerName = null) {
-  try {
-    const connected = await connectQZ();
-    if (!connected) {
-      throw new Error('QZ Tray not available');
-    }
-
-    // Get printer
-    let printer = printerName;
-    if (!printer) {
-      printer = await getPrinter();
-    }
-    
-    if (!printer) {
-      throw new Error('No printer found');
-    }
-
-    // Verify printer exists exactly
-    const allPrinters = await qz.printers.find();
-    const exactPrinter = allPrinters.find(p => p === printer);
-    
-    if (!exactPrinter) {
-      // Try case-insensitive match
-      const caseMatch = allPrinters.find(p => p.toLowerCase() === printer.toLowerCase());
-      if (caseMatch) {
-        printer = caseMatch;
-        console.log('[QZ Test Minimal] Using case-matched printer:', printer);
-      } else {
-        throw new Error(`Printer "${printer}" not found. Available: ${allPrinters.join(', ')}`);
-      }
-    } else {
-      printer = exactPrinter;
-    }
-    
-    console.log('[QZ Test Minimal] Using printer:', printer);
-    console.log('[QZ Test Minimal] Creating absolute minimal config...');
-    
-    // Create absolute minimal config - no options at all
-    const config = qz.configs.create(printer);
-    
-    if (!config) {
-      throw new Error('Failed to create config');
-    }
-    
-    console.log('[QZ Test Minimal] Config created:', {
-      hasPrinter: !!config.printer,
-      printerName: config.printer?.name || config.printer,
-      hasOptions: !!config.options
-    });
-    
-    // Create simplest possible text data
-    const testText = 'QZ Tray Test - If you see this, printing works!\n';
-    
-    console.log('[QZ Test Minimal] Sending minimal print...');
-    console.log('[QZ Test Minimal] Data:', testText);
-    
-    const printData = [{ type: 'raw', data: testText }];
-    
-    console.log('[QZ Test Minimal] Calling qz.print()...');
-    const result = await qz.print(config, printData);
-    console.log('[QZ Test Minimal] Print result:', result);
-    
-    return {
-      success: true,
-      printer: printer,
-      message: 'Minimal test print sent successfully',
-      result: result
-    };
-  } catch (error) {
-    console.error('[QZ Test Minimal] Error:', error);
-    console.error('[QZ Test Minimal] Error details:', {
-      name: error?.name,
-      message: error?.message,
-      stack: error?.stack
-    });
-    throw error;
-  }
-}
-
-/**
- * Test print with raw text - simpler format that's more reliable
- */
-export async function testPrintRaw(printerName = null) {
-  try {
-    const connected = await connectQZ();
-    if (!connected) {
-      throw new Error('QZ Tray not available');
-    }
-
-    // Get printer
-    let printer = printerName;
-    if (!printer) {
-      printer = await getPrinter();
-    }
-    
-    if (!printer) {
-      throw new Error('No printer found');
-    }
-
-    // Verify printer exists
-    const allPrinters = await qz.printers.find();
-    const exactPrinter = allPrinters.find(p => 
-      p === printer || 
-      p.toLowerCase() === printer.toLowerCase()
-    );
-    
-    if (!exactPrinter) {
-      throw new Error(`Printer "${printer}" not found. Available: ${allPrinters.join(', ')}`);
-    }
-    
-    printer = exactPrinter; // Use exact match
-    
-    console.log('[QZ Test Print] Using printer:', printer);
-    
-    // Create minimal config for raw text printing
-    const config = qz.configs.create(printer, {
-      jobName: 'QZ Tray Test Print'
-    });
-    
-    // Create simple raw text data
-    const testText = `
-================================
-QZ TRAY TEST PRINT
-================================
-If you can see this, printing is working!
-
-Printer: ${printer}
-Time: ${new Date().toLocaleString()}
-================================
-
-`;
-    
-    console.log('[QZ Test Print] Sending raw text print...');
-    console.log('[QZ Test Print] Text content:', testText);
-    
-    const printData = [
-      {
-        type: 'raw',
-        data: testText
-      }
-    ];
-    
-    const result = await qz.print(config, printData);
-    console.log('[QZ Test Print] Print result:', result);
-    
-    return {
-      success: true,
-      printer: printer,
-      message: 'Raw text test print sent successfully',
-      result: result
-    };
-  } catch (error) {
-    console.error('[QZ Test Print] Error:', error);
-    throw error;
-  }
-}
-
-/**
  * Test print - sends a simple test page to verify printer is working
- * Tries minimal config first, then raw text, then HTML
  */
 export async function testPrint(printerName = null) {
-  console.log('[QZ Test Print] Starting test print...');
+  const testHtml = `
+    <div style="text-align: center; padding: 20px;">
+      <h1>QZ Tray Test Print</h1>
+      <p>If you can see this, printing is working!</p>
+      <p>Printer: ${printerName || 'Default'}</p>
+      <p>Time: ${new Date().toLocaleString()}</p>
+    </div>
+  `;
   
-  // First try minimal config (most reliable)
-  try {
-    console.log('[QZ Test Print] Attempting minimal config print...');
-    return await testPrintMinimal(printerName);
-  } catch (minimalError) {
-    console.warn('[QZ Test Print] Minimal print failed, trying raw text:', minimalError);
-    
-    // Try raw text
-    try {
-      console.log('[QZ Test Print] Attempting raw text print...');
-      return await testPrintRaw(printerName);
-    } catch (rawError) {
-      console.warn('[QZ Test Print] Raw text print failed, trying HTML:', rawError);
-      
-      // Fallback to HTML
-      const testHtml = `
-      <div style="text-align: center; padding: 20px;">
-        <h1>QZ Tray Test Print</h1>
-        <p>If you can see this, printing is working!</p>
-        <p>Printer: ${printerName || 'Default'}</p>
-        <p>Time: ${new Date().toLocaleString()}</p>
-      </div>
-    `;
-      
-      return await printWithQZ(testHtml, printerName, { copies: 1 });
-    }
-  }
+  return await printWithQZ(testHtml, printerName, { copies: 1 });
 }
 
 /**
