@@ -417,10 +417,137 @@ export async function checkPrinterStatus(printerName) {
 }
 
 /**
+ * Convert HTML element/content to image (base64 data URI)
+ * Uses html2canvas if available, otherwise uses canvas with text rendering
+ */
+async function htmlToImage(htmlContent, widthMM = 80) {
+  return new Promise((resolve, reject) => {
+    try {
+      // Create a temporary container with proper styling
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = widthMM + 'mm';
+      container.style.maxWidth = widthMM + 'mm';
+      container.style.backgroundColor = '#ffffff';
+      container.style.padding = '8mm 5mm';
+      container.style.fontFamily = "'Courier New', monospace";
+      container.style.fontSize = '12pt';
+      container.style.lineHeight = '1.4';
+      container.style.color = '#000000';
+      container.style.whiteSpace = 'pre-wrap';
+      container.style.wordWrap = 'break-word';
+      container.innerHTML = htmlContent;
+      document.body.appendChild(container);
+      
+      // Wait for styles to apply
+      setTimeout(() => {
+        try {
+          const widthPx = Math.round((widthMM / 25.4) * 96 * 2); // 2x scale for quality
+          const heightPx = Math.max(container.scrollHeight * 2, 200);
+          
+          // Use html2canvas if available (better quality)
+          if (window.html2canvas && typeof html2canvas === 'function') {
+            html2canvas(container, {
+              width: widthPx,
+              height: heightPx,
+              backgroundColor: '#ffffff',
+              scale: 2,
+              useCORS: true,
+              logging: false,
+              allowTaint: true
+            }).then(canvas => {
+              const base64 = canvas.toDataURL('image/png');
+              document.body.removeChild(container);
+              resolve(base64);
+            }).catch(error => {
+              console.warn('[QZ Print] html2canvas failed, using fallback:', error);
+              // Fall through to canvas fallback
+              renderWithCanvas();
+            });
+          } else {
+            // Fallback: Use canvas with text rendering
+            renderWithCanvas();
+          }
+          
+          function renderWithCanvas() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const widthPx = Math.round((widthMM / 25.4) * 96 * 2);
+            const heightPx = Math.max(container.scrollHeight * 2, 200);
+            
+            canvas.width = widthPx;
+            canvas.height = heightPx;
+            
+            // Fill white background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, widthPx, heightPx);
+            
+            // Draw text content
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 24px monospace'; // 2x scale
+            ctx.textBaseline = 'top';
+            
+            const text = container.textContent || container.innerText || '';
+            const lines = text.split('\n');
+            let y = 40;
+            const lineHeight = 30;
+            const padding = 40;
+            
+            lines.forEach(line => {
+              if (line.trim()) {
+                // Handle long lines by wrapping
+                const maxWidth = widthPx - (padding * 2);
+                const words = line.split(' ');
+                let currentLine = '';
+                
+                words.forEach(word => {
+                  const testLine = currentLine + (currentLine ? ' ' : '') + word;
+                  const metrics = ctx.measureText(testLine);
+                  
+                  if (metrics.width > maxWidth && currentLine) {
+                    ctx.fillText(currentLine, padding, y);
+                    y += lineHeight;
+                    currentLine = word;
+                  } else {
+                    currentLine = testLine;
+                  }
+                });
+                
+                if (currentLine) {
+                  ctx.fillText(currentLine, padding, y);
+                  y += lineHeight;
+                }
+              } else {
+                y += lineHeight / 2; // Empty line spacing
+              }
+            });
+            
+            const base64 = canvas.toDataURL('image/png');
+            document.body.removeChild(container);
+            resolve(base64);
+          }
+        } catch (error) {
+          document.body.removeChild(container);
+          reject(error);
+        }
+      }, 100); // Small delay for rendering
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/**
  * Print HTML content using QZ Tray
  * Returns a promise that resolves with success info or rejects with error
  */
 export async function printWithQZ(htmlContent, printerName = null, options = {}) {
+  const { 
+    useImageFormat = true, // Default to image format for reliability
+    imageWidth = 80 // Width in mm
+  } = options;
   let printer = null;
   try {
     const connected = await connectQZ();
@@ -681,31 +808,47 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       console.error('[QZ Print] ERROR: HTML does not start with expected tags:', trimmedHtml.substring(0, 100));
     }
     
-    // Use raw HTML string - QZ Tray handles this better than data URIs
-    // Data URIs can cause issues with large content or special characters
-    // Raw HTML is the recommended approach for QZ Tray
-    const htmlData = fullHtml;
-    console.log('[QZ Print] Using raw HTML string (recommended for QZ Tray)');
-    console.log('[QZ Print] HTML data length:', htmlData.length);
-    console.log('[QZ Print] HTML starts with:', htmlData.substring(0, 100));
+    // Convert HTML to image format for more reliable printing
+    // Image format avoids HTML rendering issues in QZ Tray
+    let printData;
     
-    // Validate HTML structure
-    if (!htmlData.includes('<!DOCTYPE') && !htmlData.includes('<html')) {
-      console.warn('[QZ Print] WARNING: HTML may not be properly formatted');
-    }
-    
-    // Print data - copies should be in options, not config
-    // Remove format property - it's not needed for HTML type
-    const printData = [
-      {
-        type: 'html',
-        data: htmlData, // Raw HTML string - QZ Tray's preferred format
-        options: {
-          copies: options.copies || 1
-          // Don't add jobName here - it's already in config
+    console.log('[QZ Print] Converting HTML to image format for reliable printing...');
+    try {
+      // Convert HTML content to image
+      const imageData = await htmlToImage(htmlContent, paperWidthMM);
+      console.log('[QZ Print] Image conversion successful');
+      console.log('[QZ Print] Image data length:', imageData.length);
+      console.log('[QZ Print] Image preview:', imageData.substring(0, 80) + '...');
+      
+      // Use pixel/image format - more reliable than HTML
+      printData = [
+        {
+          type: 'pixel',
+          format: 'image',
+          data: imageData, // Base64 data URI (data:image/png;base64,...)
+          options: {
+            copies: options.copies || 1
+          }
         }
-      }
-    ];
+      ];
+      
+      console.log('[QZ Print] Using pixel/image format for printing');
+    } catch (imageError) {
+      console.warn('[QZ Print] Image conversion failed, falling back to HTML:', imageError);
+      
+      // Fallback to HTML if image conversion fails
+      const htmlData = fullHtml;
+      printData = [
+        {
+          type: 'html',
+          data: htmlData,
+          options: {
+            copies: options.copies || 1
+          }
+        }
+      ];
+      console.log('[QZ Print] Using HTML format (fallback)');
+    }
     
     console.log('[QZ Print] Print data prepared:', {
       type: printData[0].type,
