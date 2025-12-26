@@ -443,7 +443,13 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     const printSettings = savedSettings ? { ...defaultSettings, ...savedSettings } : defaultSettings;
 
     // Create print configuration
-    const config = qz.configs.create(printer, printSettings);
+    // TESTING: Disable silent mode for PDF printers to show save dialog
+    const configOptions = { ...printSettings };
+    if (isPDFPrinter || printer.toLowerCase().includes('microsoft print to pdf')) {
+      configOptions.silent = false; // Force save dialog to appear for testing
+      console.log('[QZ Print] TEST MODE: Silent mode disabled for PDF printer - save dialog will appear');
+    }
+    const config = qz.configs.create(printer, configOptions);
     
     // Wrap HTML content optimized for thermal paper
     const paperWidth = printSettings.size?.width || (isPDFPrinter ? 595 : 226.77);
@@ -527,21 +533,30 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       console.error('[QZ Print] ERROR: HTML does not start with expected tags:', trimmedHtml.substring(0, 100));
     }
     
-    // Convert HTML to base64 to prevent QZ Tray from treating it as a URL
-    // Base64 encoding ensures QZ Tray won't try to resolve it as a relative URL
+    // Convert HTML to prevent QZ Tray from treating it as a URL
+    // QZ Tray was prepending the domain URL, so we need to prevent URL resolution
+    // Try multiple approaches: base64 data URI, or direct HTML with prefix
     let htmlData;
+    let dataFormat = 'base64-uri'; // Track which format we're using
+    
     try {
-      // Use base64 encoding to prevent URL resolution
+      // Approach 1: Use base64-encoded data URI
+      // This should prevent QZ Tray from treating it as a relative URL
       const base64Html = btoa(unescape(encodeURIComponent(fullHtml)));
       htmlData = `data:text/html;base64,${base64Html}`;
       console.log('[QZ Print] Using base64-encoded data URI to prevent URL resolution');
       console.log('[QZ Print] Base64 data length:', base64Html.length);
-      console.log('[QZ Print] Data URI starts with:', htmlData.substring(0, 50));
+      console.log('[QZ Print] Data URI preview:', htmlData.substring(0, 60) + '...');
     } catch (encodeError) {
-      console.error('[QZ Print] Base64 encoding failed, using direct HTML:', encodeError);
-      // Fallback to direct HTML if base64 encoding fails
-      htmlData = fullHtml;
+      console.warn('[QZ Print] Base64 encoding failed, trying direct HTML with prefix:', encodeError);
+      dataFormat = 'direct-with-prefix';
+      // Approach 2: Direct HTML with a prefix comment to prevent URL detection
+      // Ensure it starts with HTML comment, not a URL pattern
+      htmlData = `<!-- QZ Tray Print Job -->\n${fullHtml}`;
     }
+    
+    // Log the format being used
+    console.log('[QZ Print] Data format:', dataFormat);
     
     const printData = [
       {
