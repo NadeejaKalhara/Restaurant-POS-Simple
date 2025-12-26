@@ -885,6 +885,17 @@ export async function testPrint(printerName = null) {
     
     console.log('[QZ Test Print] Using printer:', printer);
     
+    // Verify websocket is active before printing
+    if (!qz.websocket.isActive()) {
+      console.warn('[QZ Test Print] Websocket not active, attempting to reconnect...');
+      await qz.websocket.connect();
+    }
+    
+    console.log('[QZ Test Print] Websocket status:', {
+      isActive: qz.websocket.isActive(),
+      isConnecting: qz.websocket.isConnecting()
+    });
+    
     // Create absolute minimal config - no options at all
     console.log('[QZ Test Print] Creating minimal config...');
     const config = qz.configs.create(printer);
@@ -895,7 +906,8 @@ export async function testPrint(printerName = null) {
     
     console.log('[QZ Test Print] Config created:', {
       hasPrinter: !!config.printer,
-      printerName: config.printer?.name || config.printer
+      printerName: config.printer?.name || config.printer,
+      configType: typeof config
     });
     
     // Create simple raw text data - much faster and more reliable than HTML
@@ -905,12 +917,11 @@ export async function testPrint(printerName = null) {
     console.log('[QZ Test Print] Text content length:', testText.length);
     console.log('[QZ Test Print] Text preview:', testText.substring(0, 50));
     
-    // Try different raw data formats
+    // Raw data format - QZ Tray expects just type and data
     const printData = [
       {
         type: 'raw',
-        data: testText,
-        format: 'plain'
+        data: testText
       }
     ];
     
