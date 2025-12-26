@@ -514,30 +514,40 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     console.log('[QZ Print] Config object:', JSON.stringify(config, null, 2));
     
     // Create print data
-    // QZ Tray may prepend the current page URL to HTML data in some cases
-    // Ensure HTML is self-contained and doesn't contain relative URLs that might trigger this
+    // ISSUE: QZ Tray is prepending the domain URL (https://shan.cynex.lk/) to HTML data
+    // This happens when QZ Tray treats the HTML string as a relative URL
+    // SOLUTION: Use base64 encoding to prevent URL resolution
+    
     console.log('[QZ Print] HTML data length:', fullHtml.length);
     console.log('[QZ Print] HTML starts with:', fullHtml.substring(0, 50));
     
-    // Check if HTML contains the domain (which shouldn't happen)
-    if (fullHtml.includes('shan.cynex.lk')) {
-      console.warn('[QZ Print] WARNING: HTML contains domain name. This may cause issues.');
-    }
-    
-    // Ensure HTML starts with <!DOCTYPE or <html, not a URL
+    // Ensure HTML starts correctly
     const trimmedHtml = fullHtml.trim();
     if (!trimmedHtml.startsWith('<!DOCTYPE') && !trimmedHtml.startsWith('<html')) {
       console.error('[QZ Print] ERROR: HTML does not start with expected tags:', trimmedHtml.substring(0, 100));
     }
     
-    // Use direct HTML string - QZ Tray should handle it correctly
-    // The issue in the logs suggests QZ Tray is prepending the URL, which might be a QZ Tray bug
-    // or configuration issue
+    // Convert HTML to base64 to prevent QZ Tray from treating it as a URL
+    // Base64 encoding ensures QZ Tray won't try to resolve it as a relative URL
+    let htmlData;
+    try {
+      // Use base64 encoding to prevent URL resolution
+      const base64Html = btoa(unescape(encodeURIComponent(fullHtml)));
+      htmlData = `data:text/html;base64,${base64Html}`;
+      console.log('[QZ Print] Using base64-encoded data URI to prevent URL resolution');
+      console.log('[QZ Print] Base64 data length:', base64Html.length);
+      console.log('[QZ Print] Data URI starts with:', htmlData.substring(0, 50));
+    } catch (encodeError) {
+      console.error('[QZ Print] Base64 encoding failed, using direct HTML:', encodeError);
+      // Fallback to direct HTML if base64 encoding fails
+      htmlData = fullHtml;
+    }
+    
     const printData = [
       {
         type: 'html',
         format: 'html',
-        data: fullHtml, // Direct HTML string
+        data: htmlData, // Use base64 data URI to prevent URL resolution
         options: {
           copies: options.copies || 1,
           jobName: printSettings.jobName || 'POS Receipt'
@@ -549,10 +559,10 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       type: printData[0].type,
       format: printData[0].format,
       dataLength: printData[0].data.length,
-      dataFirstChars: printData[0].data.substring(0, 80).replace(/\s+/g, ' ')
+      dataFirstChars: printData[0].data.substring(0, 80),
+      originalHtmlLength: fullHtml.length
     });
-
-    console.log('[QZ Print] Print data prepared, length:', fullHtml.length, 'chars');
+    
     console.log('[QZ Print] Calling qz.print()...');
 
     try {
