@@ -511,7 +511,9 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     // QZ Tray's print() returns a promise that resolves when print job is sent successfully
     // Note: This doesn't guarantee the printer actually printed, but that the job was sent
     console.log('[QZ Print] Sending print job to QZ Tray...');
+    console.log('[QZ Print] Config object:', JSON.stringify(config, null, 2));
     
+    // Create print data
     const printData = [
       {
         type: 'html',
@@ -524,18 +526,46 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       }
     ];
 
-    const result = await qz.print(config, printData);
-    
-    console.log('[QZ Print] Print job sent successfully. QZ Tray response:', result);
-    
-    // Return success information
-    return {
-      success: true,
-      printer: printer,
-      message: 'Print job sent successfully to QZ Tray',
-      result: result,
-      note: 'Job sent to QZ Tray. Check printer status if printing does not occur.'
-    };
+    console.log('[QZ Print] Print data prepared, length:', fullHtml.length, 'chars');
+    console.log('[QZ Print] Calling qz.print()...');
+
+    try {
+      // Add timeout to prevent hanging (30 seconds)
+      const printPromise = qz.print(config, printData);
+      
+      // Log immediately after calling print
+      console.log('[QZ Print] qz.print() called, waiting for response...');
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          console.error('[QZ Print] TIMEOUT: Print job timed out after 30 seconds');
+          reject(new Error('Print job timed out after 30 seconds. The job may still be processing in QZ Tray. Check QZ Tray logs for details.'));
+        }, 30000);
+      });
+
+      const printResult = await Promise.race([printPromise, timeoutPromise]);
+      
+      console.log('[QZ Print] Print job completed. QZ Tray response:', printResult);
+      console.log('[QZ Print] Response type:', typeof printResult);
+      
+      // Return success information
+      return {
+        success: true,
+        printer: printer,
+        message: 'Print job sent successfully to QZ Tray',
+        result: printResult || { success: true },
+        note: 'Job sent to QZ Tray. Check printer status if printing does not occur.'
+      };
+      
+    } catch (printError) {
+      console.error('[QZ Print] Error during print execution:', printError);
+      console.error('[QZ Print] Error name:', printError.name);
+      console.error('[QZ Print] Error message:', printError.message);
+      if (printError.stack) {
+        console.error('[QZ Print] Error stack:', printError.stack);
+      }
+      throw printError;
+    }
   } catch (error) {
     console.error('[QZ Print] Print error occurred:', error);
     console.error('[QZ Print] Error details:', {
