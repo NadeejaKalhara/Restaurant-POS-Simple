@@ -360,6 +360,46 @@ function getDefaultPrintSettings(printer) {
 }
 
 /**
+ * Check printer status (if available)
+ */
+export async function checkPrinterStatus(printerName) {
+  try {
+    const connected = await connectQZ();
+    if (!connected) {
+      return { available: false, error: 'QZ Tray not connected' };
+    }
+
+    // Try to get printer info - this will fail if printer doesn't exist
+    try {
+      // List all printers to verify the printer exists
+      const printers = await qz.printers.find();
+      const exists = printers.some(p => p === printerName || p.toLowerCase() === printerName.toLowerCase());
+      
+      if (!exists) {
+        return { 
+          available: false, 
+          error: `Printer "${printerName}" not found in available printers`,
+          availablePrinters: printers
+        };
+      }
+
+      // Try to get printer details (may not work on all systems)
+      try {
+        const printerInfo = await qz.printers.find(printerName);
+        return { available: true, printerInfo };
+      } catch (infoError) {
+        // Printer exists but we can't get detailed info - that's okay
+        return { available: true, note: 'Printer found but detailed status unavailable' };
+      }
+    } catch (error) {
+      return { available: false, error: error.message || 'Failed to check printer status' };
+    }
+  } catch (error) {
+    return { available: false, error: error.message || 'Failed to connect to QZ Tray' };
+  }
+}
+
+/**
  * Print HTML content using QZ Tray
  * Returns a promise that resolves with success info or rejects with error
  */
@@ -376,11 +416,25 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       throw new Error('No printer found');
     }
 
+    console.log('[QZ Print] Attempting to print to:', printer);
+
+    // Check printer status before printing
+    const status = await checkPrinterStatus(printer);
+    if (!status.available) {
+      console.warn('[QZ Print] Printer status check:', status);
+      // Don't throw error, but log warning - some printers may not support status checking
+      if (status.error && status.error.includes('not found')) {
+        throw new Error(`Printer "${printer}" not found. Available printers: ${status.availablePrinters?.join(', ') || 'none'}`);
+      }
+    } else {
+      console.log('[QZ Print] Printer status check passed:', status);
+    }
+
     // Check if this is a PDF printer for testing
     const isPDFPrinter = printer.toLowerCase().includes('pdf');
     
     if (isPDFPrinter) {
-      console.log('Using PDF printer for testing:', printer);
+      console.log('[QZ Print] Using PDF printer for testing:', printer);
     }
 
     // Get saved printer settings or use defaults
@@ -444,10 +498,21 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       </html>
     `;
 
+    // Log print configuration for debugging
+    console.log('[QZ Print] Print configuration:', {
+      printer: printer,
+      settings: printSettings,
+      paperWidth: paperWidth,
+      paperWidthMM: paperWidthMM,
+      isPDFPrinter: isPDFPrinter
+    });
+
     // Print and wait for completion
     // QZ Tray's print() returns a promise that resolves when print job is sent successfully
     // Note: This doesn't guarantee the printer actually printed, but that the job was sent
-    const result = await qz.print(config, [
+    console.log('[QZ Print] Sending print job to QZ Tray...');
+    
+    const printData = [
       {
         type: 'html',
         format: 'html',
@@ -457,24 +522,47 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
           jobName: printSettings.jobName || 'POS Receipt'
         }
       }
-    ]);
+    ];
+
+    const result = await qz.print(config, printData);
+    
+    console.log('[QZ Print] Print job sent successfully. QZ Tray response:', result);
     
     // Return success information
     return {
       success: true,
       printer: printer,
-      message: 'Print job sent successfully',
-      result: result
+      message: 'Print job sent successfully to QZ Tray',
+      result: result,
+      note: 'Job sent to QZ Tray. Check printer status if printing does not occur.'
     };
   } catch (error) {
-    console.error('QZ Print error:', error);
+    console.error('[QZ Print] Print error occurred:', error);
+    console.error('[QZ Print] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      printer: printer || printerName || 'unknown',
+      errorType: error.constructor?.name
+    });
+    
     // Return error information
-    throw {
+    const errorInfo = {
       success: false,
       printer: printer || printerName || 'unknown',
       message: error.message || 'Print failed',
       error: error
     };
+    
+    // Add helpful troubleshooting info
+    if (error.message && error.message.includes('not found')) {
+      errorInfo.troubleshooting = 'Printer not found. Please verify the printer name in QZ Tray Settings.';
+    } else if (error.message && error.message.includes('not available')) {
+      errorInfo.troubleshooting = 'QZ Tray is not available. Please ensure QZ Tray is running.';
+    } else {
+      errorInfo.troubleshooting = 'Check QZ Tray logs for more details. Ensure printer is online and has paper.';
+    }
+    
+    throw errorInfo;
   }
 }
 
@@ -518,6 +606,59 @@ export async function printReceipt(element, options = {}) {
     }
     
     throw error; // Re-throw so caller knows it failed
+  }
+}
+
+/**
+ * Test print - sends a simple test page to verify printer is working
+ */
+export async function testPrint(printerName = null) {
+  const testHtml = `
+    <div style="text-align: center; padding: 20px;">
+      <h1>QZ Tray Test Print</h1>
+      <p>If you can see this, printing is working!</p>
+      <p>Printer: ${printerName || 'Default'}</p>
+      <p>Time: ${new Date().toLocaleString()}</p>
+    </div>
+  `;
+  
+  return await printWithQZ(testHtml, printerName, { copies: 1 });
+}
+
+/**
+ * Get detailed printer information for debugging
+ */
+export async function getPrinterDetails(printerName) {
+  try {
+    const connected = await connectQZ();
+    if (!connected) {
+      return { error: 'QZ Tray not connected' };
+    }
+
+    const printers = await qz.printers.find();
+    const printer = printers.find(p => 
+      p === printerName || 
+      p.toLowerCase() === printerName.toLowerCase()
+    );
+
+    if (!printer) {
+      return {
+        error: 'Printer not found',
+        availablePrinters: printers
+      };
+    }
+
+    return {
+      name: printer,
+      exists: true,
+      allPrinters: printers,
+      note: 'Use Windows Print Queue to check if print jobs are queued'
+    };
+  } catch (error) {
+    return {
+      error: error.message || 'Failed to get printer details',
+      originalError: error
+    };
   }
 }
 

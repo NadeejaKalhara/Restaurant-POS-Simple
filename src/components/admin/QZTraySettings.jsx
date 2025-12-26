@@ -14,7 +14,10 @@ import {
   getSavedPrinter,
   savePrinter,
   getPrinterSettings,
-  savePrinterSettings
+  savePrinterSettings,
+  testPrint,
+  checkPrinterStatus,
+  getPrinterDetails
 } from '@/utils/qzPrint';
 
 export default function QZTraySettings() {
@@ -37,6 +40,8 @@ export default function QZTraySettings() {
     colorType: 'grayscale',
     interpolation: 'nearest-neighbor'
   });
+  const [testingPrint, setTestingPrint] = useState(false);
+  const [printerStatus, setPrinterStatus] = useState(null);
 
   useEffect(() => {
     checkQZStatus();
@@ -290,15 +295,78 @@ export default function QZTraySettings() {
                     <Settings className="w-4 h-4" />
                     Print Settings for {selectedPrinter}
                   </Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowPrintSettings(!showPrintSettings)}
-                    className="text-xs"
-                  >
-                    {showPrintSettings ? 'Hide' : 'Show'} Settings
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        setTestingPrint(true);
+                        try {
+                          const status = await checkPrinterStatus(selectedPrinter);
+                          setPrinterStatus(status);
+                          if (status.available) {
+                            toast.success('Printer status check passed');
+                          } else {
+                            toast.warning(`Printer status: ${status.error || 'Unknown'}`);
+                          }
+                        } catch (error) {
+                          toast.error('Failed to check printer status');
+                          console.error('Printer status error:', error);
+                        } finally {
+                          setTestingPrint(false);
+                        }
+                      }}
+                      disabled={testingPrint}
+                      className="text-xs"
+                    >
+                      Check Status
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        setTestingPrint(true);
+                        try {
+                          await testPrint(selectedPrinter);
+                          toast.success('Test print sent! Check your printer.');
+                        } catch (error) {
+                          toast.error(`Test print failed: ${error.message || 'Unknown error'}`);
+                          console.error('Test print error:', error);
+                        } finally {
+                          setTestingPrint(false);
+                        }
+                      }}
+                      disabled={testingPrint || !selectedPrinter}
+                      className="text-xs"
+                    >
+                      {testingPrint ? 'Testing...' : 'Test Print'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowPrintSettings(!showPrintSettings)}
+                      className="text-xs"
+                    >
+                      {showPrintSettings ? 'Hide' : 'Show'} Settings
+                    </Button>
+                  </div>
                 </div>
+
+                {printerStatus && (
+                  <div className={`p-2 rounded text-xs ${
+                    printerStatus.available 
+                      ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' 
+                      : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+                  }`}>
+                    <strong>Status:</strong> {printerStatus.available ? 'Available' : 'Not Available'}
+                    {printerStatus.error && <div className="mt-1">Error: {printerStatus.error}</div>}
+                    {printerStatus.availablePrinters && (
+                      <div className="mt-1">
+                        Available printers: {printerStatus.availablePrinters.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {showPrintSettings && (
                   <div className="space-y-3 pt-2">
