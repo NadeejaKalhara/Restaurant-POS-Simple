@@ -347,25 +347,30 @@ export async function getPrinter() {
 function getDefaultPrintSettings(printer) {
   const isPDFPrinter = printer.toLowerCase().includes('pdf');
   const isXPrinter = printer.toLowerCase().includes('xp') || printer.toLowerCase().includes('k200l');
+  const isThermalPrinter = isXPrinter || printer.toLowerCase().includes('thermal') || printer.toLowerCase().includes('receipt');
   
   // Base settings
   const baseSettings = {
     size: { 
       width: isPDFPrinter ? 595 : 80,  // A4 width (points) for PDF, 80mm for thermal
-      height: null  // Auto height - dynamic based on content length
+      height: isPDFPrinter ? 842 : 200  // A4 height for PDF, reasonable default for thermal (will auto-adjust)
     },
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
     orientation: 'portrait',
     colorType: isPDFPrinter ? 'color' : 'grayscale',
     interpolation: 'nearest-neighbor',
-    jobName: isPDFPrinter ? 'POS Receipt (PDF Test)' : 'POS Receipt'
+    jobName: isPDFPrinter ? 'POS Receipt (PDF Test)' : 'POS Receipt',
+    copies: 1
   };
   
-  // Add required XPrinter settings for thermal printers
-  if (!isPDFPrinter) {
+  // Add required settings for thermal printers
+  if (!isPDFPrinter && isThermalPrinter) {
     baseSettings.rasterize = true;        // Required for reliable printing
     baseSettings.scaleContent = true;     // Ensures content scales properly
     baseSettings.units = 'mm';          // Use millimeters for size
+    baseSettings.forceRaw = false;      // Use standard printing (not raw ESC/POS)
+    baseSettings.density = 0;           // Default density
+    baseSettings.duplex = false;       // No duplex for thermal
   }
   
   return baseSettings;
@@ -423,12 +428,35 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       throw new Error('QZ Tray not available');
     }
 
-    printer = printerName || await getPrinter();
+    // Get printer - if printerName is provided, use it directly; otherwise auto-detect
+    if (printerName) {
+      // Verify the specified printer exists
+      const allPrinters = await qz.printers.find();
+      const exactMatch = allPrinters.find(p => 
+        p === printerName || 
+        p.toLowerCase() === printerName.toLowerCase() ||
+        p.toLowerCase().includes(printerName.toLowerCase())
+      );
+      
+      if (exactMatch) {
+        printer = exactMatch; // Use the exact match from QZ Tray
+        console.log('[QZ Print] Using specified printer:', printer, '(matched from:', printerName, ')');
+      } else {
+        console.warn('[QZ Print] Specified printer not found:', printerName);
+        console.warn('[QZ Print] Available printers:', allPrinters);
+        printer = await getPrinter(); // Fallback to auto-detect
+        console.warn('[QZ Print] Falling back to auto-detected printer:', printer);
+      }
+    } else {
+      printer = await getPrinter();
+    }
+    
     if (!printer) {
       throw new Error('No printer found');
     }
 
     console.log('[QZ Print] Attempting to print to:', printer);
+    console.log('[QZ Print] All available printers:', await qz.printers.find());
 
     // Check printer status before printing
     const status = await checkPrinterStatus(printer);
@@ -460,7 +488,48 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     if (isPDFPrinter || printer.toLowerCase().includes('microsoft print to pdf')) {
       configOptions.silent = true; // Force save dialog to appear for testing
     }
-    const config = qz.configs.create(printer, configOptions);
+    
+    // Log the exact printer name being used (important for debugging)
+    console.log('[QZ Print] Creating config for printer:', printer);
+    console.log('[QZ Print] Printer name type:', typeof printer);
+    console.log('[QZ Print] Config options:', JSON.stringify(configOptions, null, 2));
+    
+    // Validate printer name before creating config
+    if (!printer || typeof printer !== 'string' || printer.trim().length === 0) {
+      throw new Error(`Invalid printer name: ${printer}. Printer name must be a non-empty string.`);
+    }
+    
+    let config;
+    try {
+      config = qz.configs.create(printer, configOptions);
+      
+      // Verify the config was created correctly
+      if (!config) {
+        throw new Error('Failed to create print configuration - config is null/undefined');
+      }
+      
+      console.log('[QZ Print] Config created successfully');
+      console.log('[QZ Print] Config type:', typeof config);
+      console.log('[QZ Print] Config printer name:', config?.printer?.name || config?.printer || 'not set');
+      console.log('[QZ Print] Config has options:', !!config?.options);
+      
+      // Verify printer name in config matches what we requested
+      const configPrinterName = config?.printer?.name || config?.printer;
+      if (configPrinterName && configPrinterName.toLowerCase() !== printer.toLowerCase()) {
+        console.warn('[QZ Print] WARNING: Config printer name does not match requested printer');
+        console.warn('[QZ Print] Requested:', printer);
+        console.warn('[QZ Print] Config has:', configPrinterName);
+      }
+    } catch (configError) {
+      console.error('[QZ Print] Error creating print configuration:', configError);
+      console.error('[QZ Print] Config error details:', {
+        message: configError?.message,
+        name: configError?.name,
+        printer: printer,
+        options: configOptions
+      });
+      throw new Error(`Failed to create print configuration: ${configError?.message || String(configError)}`);
+    }
     
     // Wrap HTML content optimized for thermal paper
     // If units is 'mm', width is already in millimeters; otherwise convert from points
@@ -468,6 +537,12 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     const paperWidthMM = printSettings.units === 'mm' 
       ? paperWidth  // Already in mm
       : Math.round((paperWidth / 72) * 25.4); // Convert points to mm
+    
+    // For thermal printers, ensure we have a reasonable paper width
+    // Note: paperWidthMM is already calculated above, this is just a validation check
+    if (!isPDFPrinter && paperWidthMM < 50) {
+      console.warn('[QZ Print] Paper width seems too small:', paperWidthMM, 'mm');
+    }
     
     const fullHtml = `
       <!DOCTYPE html>
@@ -547,36 +622,24 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       console.error('[QZ Print] ERROR: HTML does not start with expected tags:', trimmedHtml.substring(0, 100));
     }
     
-    // Convert HTML to prevent QZ Tray from treating it as a URL
-    // QZ Tray was prepending the domain URL, so we need to prevent URL resolution
-    // Try multiple approaches: base64 data URI, or direct HTML with prefix
-    let htmlData;
-    let dataFormat = 'base64-uri'; // Track which format we're using
+    // Use raw HTML string - QZ Tray handles this better than data URIs
+    // Data URIs can cause issues with large content or special characters
+    // Raw HTML is the recommended approach for QZ Tray
+    const htmlData = fullHtml;
+    console.log('[QZ Print] Using raw HTML string (recommended for QZ Tray)');
+    console.log('[QZ Print] HTML data length:', htmlData.length);
+    console.log('[QZ Print] HTML starts with:', htmlData.substring(0, 100));
     
-    try {
-      // Approach 1: Use base64-encoded data URI
-      // This should prevent QZ Tray from treating it as a relative URL
-      const base64Html = btoa(unescape(encodeURIComponent(fullHtml)));
-      htmlData = `data:text/html;base64,${base64Html}`;
-      console.log('[QZ Print] Using base64-encoded data URI to prevent URL resolution');
-      console.log('[QZ Print] Base64 data length:', base64Html.length);
-      console.log('[QZ Print] Data URI preview:', htmlData.substring(0, 60) + '...');
-    } catch (encodeError) {
-      console.warn('[QZ Print] Base64 encoding failed, trying direct HTML with prefix:', encodeError);
-      dataFormat = 'direct-with-prefix';
-      // Approach 2: Direct HTML with a prefix comment to prevent URL detection
-      // Ensure it starts with HTML comment, not a URL pattern
-      htmlData = `<!-- QZ Tray Print Job -->\n${fullHtml}`;
+    // Validate HTML structure
+    if (!htmlData.includes('<!DOCTYPE') && !htmlData.includes('<html')) {
+      console.warn('[QZ Print] WARNING: HTML may not be properly formatted');
     }
-    
-    // Log the format being used
-    console.log('[QZ Print] Data format:', dataFormat);
     
     const printData = [
       {
         type: 'html',
         format: 'html',
-        data: htmlData, // Use base64 data URI to prevent URL resolution
+        data: htmlData, // Raw HTML string - QZ Tray's preferred format
         options: {
           copies: options.copies || 1,
           jobName: printSettings.jobName || 'POS Receipt'
@@ -588,24 +651,50 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       type: printData[0].type,
       format: printData[0].format,
       dataLength: printData[0].data.length,
-      dataFirstChars: printData[0].data.substring(0, 80),
-      originalHtmlLength: fullHtml.length
+      dataFirstChars: printData[0].data.substring(0, 100),
+      printer: printer,
+      configOptions: Object.keys(config)
     });
     
+    // Validate config before printing
+    if (!config) {
+      throw new Error('Print configuration is invalid');
+    }
+    
     console.log('[QZ Print] Calling qz.print()...');
+    console.log('[QZ Print] Config details:', {
+      printer: config.printer?.name || printer,
+      hasOptions: !!config.options
+    });
 
     try {
-      // Add timeout to prevent hanging (30 seconds)
-      const printPromise = qz.print(config, printData);
+      // Wrap print call with better error handling
+      const printPromise = qz.print(config, printData).catch(error => {
+        // Catch any immediate errors
+        console.error('[QZ Print] Print promise rejected immediately:', error);
+        console.error('[QZ Print] Error details:', {
+          name: error?.name,
+          message: error?.message,
+          stack: error?.stack,
+          toString: String(error)
+        });
+        throw error;
+      });
       
       // Log immediately after calling print
       console.log('[QZ Print] qz.print() called, waiting for response...');
       
+      // Add timeout to prevent hanging (15 seconds - shorter timeout to catch issues faster)
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
-          console.error('[QZ Print] TIMEOUT: Print job timed out after 30 seconds');
-          reject(new Error('Print job timed out after 30 seconds. The job may still be processing in QZ Tray. Check QZ Tray logs for details.'));
-        }, 30000);
+          console.error('[QZ Print] TIMEOUT: Print job timed out after 15 seconds');
+          console.error('[QZ Print] This usually means QZ Tray is not processing the job.');
+          console.error('[QZ Print] Possible causes:');
+          console.error('[QZ Print]   1. Printer driver issue');
+          console.error('[QZ Print]   2. Invalid print configuration');
+          console.error('[QZ Print]   3. QZ Tray internal error (check QZ Tray logs)');
+          reject(new Error('Print job timed out after 15 seconds. The job was not queued. Check QZ Tray logs and printer configuration.'));
+        }, 15000);
       });
 
       const printResult = await Promise.race([printPromise, timeoutPromise]);
@@ -613,22 +702,65 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       console.log('[QZ Print] Print job completed. QZ Tray response:', printResult);
       console.log('[QZ Print] Response type:', typeof printResult);
       
+      // Log full response details
+      if (printResult) {
+        try {
+          console.log('[QZ Print] Response details:', JSON.stringify(printResult, null, 2));
+        } catch (e) {
+          console.log('[QZ Print] Response (stringified):', String(printResult));
+        }
+      } else {
+        console.warn('[QZ Print] WARNING: Print result is null/undefined - job may not have been queued');
+      }
+      
+      // Check if there are any warnings or errors in the response
+      if (printResult && typeof printResult === 'object') {
+        if (printResult.error) {
+          console.error('[QZ Print] Print job returned an error:', printResult.error);
+          throw new Error(printResult.error);
+        }
+        if (printResult.warning) {
+          console.warn('[QZ Print] Print job warning:', printResult.warning);
+        }
+        // Check for common error indicators
+        if (printResult.success === false) {
+          console.error('[QZ Print] Print job marked as failed:', printResult);
+          throw new Error(printResult.message || printResult.error || 'Print job failed');
+        }
+      }
+      
+      // If result is null/undefined, this might indicate the job wasn't queued
+      if (!printResult) {
+        console.warn('[QZ Print] WARNING: No response from QZ Tray. Job may not have been queued.');
+        console.warn('[QZ Print] Check QZ Tray logs for errors.');
+      }
+      
       // Return success information
       return {
         success: true,
         printer: printer,
         message: 'Print job sent successfully to QZ Tray',
         result: printResult || { success: true },
-        note: 'Job sent to QZ Tray. Check printer status if printing does not occur.'
+        note: 'Job sent to QZ Tray. If printing does not occur, check: 1) Windows print queue, 2) Printer is online, 3) QZ Tray logs for errors.'
       };
       
     } catch (printError) {
       console.error('[QZ Print] Error during print execution:', printError);
-      console.error('[QZ Print] Error name:', printError.name);
-      console.error('[QZ Print] Error message:', printError.message);
-      if (printError.stack) {
+      console.error('[QZ Print] Error name:', printError?.name);
+      console.error('[QZ Print] Error message:', printError?.message);
+      console.error('[QZ Print] Error constructor:', printError?.constructor?.name);
+      if (printError?.stack) {
         console.error('[QZ Print] Error stack:', printError.stack);
       }
+      
+      // Additional debugging info
+      console.error('[QZ Print] Print configuration that failed:', {
+        printer: printer,
+        configType: typeof config,
+        printDataType: typeof printData,
+        printDataLength: printData?.[0]?.data?.length
+      });
+      
       throw printError;
     }
   } catch (error) {

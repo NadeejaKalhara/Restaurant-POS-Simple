@@ -50,3 +50,4 @@ That's it! 🎉
 - **Printing works** without QZ certificate setup!
 
 
+
