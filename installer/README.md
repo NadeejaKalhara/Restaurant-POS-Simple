@@ -61,3 +61,4 @@ npm start
 - The installer creates a `.env` file with default settings
 - Users can modify the `.env` file after installation if needed
 
+

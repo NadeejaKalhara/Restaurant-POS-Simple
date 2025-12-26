@@ -22,3 +22,4 @@ powershell -ExecutionPolicy Bypass -File "%~dp0generate-qz-cert.ps1"
 echo.
 pause
 
+

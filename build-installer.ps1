@@ -35,3 +35,4 @@ Write-Host "The installer can be found in: installer\dist\" -ForegroundColor Cya
 Write-Host ""
 Read-Host "Press Enter to exit"
 
+

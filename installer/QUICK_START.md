@@ -49,3 +49,4 @@ That's it! 🎉
 - **MongoDB** is optional (can use MongoDB Atlas cloud)
 - **Printing works** without QZ certificate setup!
 
+

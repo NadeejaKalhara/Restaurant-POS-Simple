@@ -85,3 +85,4 @@ Your restaurant POS system uses **two separate certificates** for different purp
 
 **Need help?** See [HOW_TO_GET_CERTIFICATE.md](HOW_TO_GET_CERTIFICATE.md) for detailed instructions.
 
+

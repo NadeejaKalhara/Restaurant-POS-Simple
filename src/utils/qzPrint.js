@@ -342,14 +342,17 @@ export async function getPrinter() {
 
 /**
  * Get default print settings for a printer
+ * Includes required XPrinter settings for reliable printing
  */
 function getDefaultPrintSettings(printer) {
   const isPDFPrinter = printer.toLowerCase().includes('pdf');
+  const isXPrinter = printer.toLowerCase().includes('xp') || printer.toLowerCase().includes('k200l');
   
-  return {
+  // Base settings
+  const baseSettings = {
     size: { 
-      width: isPDFPrinter ? 595 : 226.77,  // A4 width for PDF, 80mm for thermal
-      height: null     // Auto height
+      width: isPDFPrinter ? 595 : 80,  // A4 width (points) for PDF, 80mm for thermal
+      height: isPDFPrinter ? null : 200  // Auto height for PDF, 200mm for thermal
     },
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
     orientation: 'portrait',
@@ -357,6 +360,15 @@ function getDefaultPrintSettings(printer) {
     interpolation: 'nearest-neighbor',
     jobName: isPDFPrinter ? 'POS Receipt (PDF Test)' : 'POS Receipt'
   };
+  
+  // Add required XPrinter settings for thermal printers
+  if (!isPDFPrinter) {
+    baseSettings.rasterize = true;        // Required for reliable printing
+    baseSettings.scaleContent = true;     // Ensures content scales properly
+    baseSettings.units = 'mm';          // Use millimeters for size
+  }
+  
+  return baseSettings;
 }
 
 /**
@@ -451,8 +463,11 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     const config = qz.configs.create(printer, configOptions);
     
     // Wrap HTML content optimized for thermal paper
-    const paperWidth = printSettings.size?.width || (isPDFPrinter ? 595 : 226.77);
-    const paperWidthMM = Math.round((paperWidth / 72) * 25.4); // Convert points to mm
+    // If units is 'mm', width is already in millimeters; otherwise convert from points
+    const paperWidth = printSettings.size?.width || (isPDFPrinter ? 595 : 80);
+    const paperWidthMM = printSettings.units === 'mm' 
+      ? paperWidth  // Already in mm
+      : Math.round((paperWidth / 72) * 25.4); // Convert points to mm
     
     const fullHtml = `
       <!DOCTYPE html>

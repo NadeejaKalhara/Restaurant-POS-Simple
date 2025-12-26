@@ -64,3 +64,4 @@ If you just want to get started quickly, you can:
 
 The installer will work without a custom icon, but Windows will show a default Electron icon.
 
+
