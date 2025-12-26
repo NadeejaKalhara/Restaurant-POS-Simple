@@ -263,7 +263,7 @@ export default function QZTraySettings() {
                   <SelectTrigger className="flex-1 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white">
                     <SelectValue placeholder={loadingPrinters ? "Loading printers..." : "Select a printer"} />
                   </SelectTrigger>
-                  <SelectContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 max-h-60">
+                  <SelectContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 max-h-60 overflow-y-auto">
                     {availablePrinters.length > 0 ? (
                       availablePrinters.map((printerName) => (
                         <SelectItem key={printerName} value={printerName}>
