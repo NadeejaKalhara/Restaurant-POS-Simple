@@ -352,7 +352,7 @@ function getDefaultPrintSettings(printer) {
   const baseSettings = {
     size: { 
       width: isPDFPrinter ? 595 : 80,  // A4 width (points) for PDF, 80mm for thermal
-      height: isPDFPrinter ? null : 200  // Auto height for PDF, 200mm for thermal
+      height: null  // Auto height - dynamic based on content length
     },
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
     orientation: 'portrait',
