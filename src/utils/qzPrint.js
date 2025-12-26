@@ -482,12 +482,24 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     const defaultSettings = getDefaultPrintSettings(printer);
     const printSettings = savedSettings ? { ...defaultSettings, ...savedSettings } : defaultSettings;
 
-    // Create print configuration
-    // TESTING: Disable silent mode for PDF printers to show save dialog
-    const configOptions = { ...printSettings };
-    if (isPDFPrinter || printer.toLowerCase().includes('microsoft print to pdf')) {
-      configOptions.silent = true; // Force save dialog to appear for testing
+    // Create print configuration - SIMPLIFIED to avoid QZ Tray hanging
+    // Use minimal options - complex options can cause QZ Tray to hang
+    const configOptions = {
+      jobName: printSettings.jobName || 'POS Receipt',
+      copies: options.copies || 1
+    };
+    
+    // Only add size if it's a PDF printer (PDF printers need explicit size)
+    if (isPDFPrinter) {
+      configOptions.size = printSettings.size;
+      configOptions.margins = printSettings.margins;
+      configOptions.orientation = printSettings.orientation;
+      configOptions.colorType = printSettings.colorType;
     }
+    
+    // For thermal printers, use minimal config - let QZ Tray handle defaults
+    // Don't add rasterize, scaleContent, units, etc. as they can cause hangs
+    console.log('[QZ Print] Using simplified config options to avoid QZ Tray hanging');
     
     // Log the exact printer name being used (important for debugging)
     console.log('[QZ Print] Creating config for printer:', printer);
@@ -838,18 +850,107 @@ export async function printReceipt(element, options = {}) {
 
 /**
  * Test print - sends a simple test page to verify printer is working
+ * Uses raw text format for better reliability and faster printing
  */
 export async function testPrint(printerName = null) {
-  const testHtml = `
-    <div style="text-align: center; padding: 20px;">
-      <h1>QZ Tray Test Print</h1>
-      <p>If you can see this, printing is working!</p>
-      <p>Printer: ${printerName || 'Default'}</p>
-      <p>Time: ${new Date().toLocaleString()}</p>
-    </div>
-  `;
-  
-  return await printWithQZ(testHtml, printerName, { copies: 1 });
+  try {
+    const connected = await connectQZ();
+    if (!connected) {
+      throw new Error('QZ Tray not available');
+    }
+
+    // Get printer - use getPrinter() function from this file
+    let printer = printerName;
+    if (!printer) {
+      // Call getPrinter function (defined earlier in this file)
+      printer = await getPrinter();
+    }
+    
+    if (!printer) {
+      throw new Error('No printer found');
+    }
+
+    // Verify printer exists
+    const allPrinters = await qz.printers.find();
+    const exactPrinter = allPrinters.find(p => 
+      p === printer || 
+      p.toLowerCase() === printer.toLowerCase()
+    );
+    
+    if (!exactPrinter) {
+      throw new Error(`Printer "${printer}" not found. Available: ${allPrinters.join(', ')}`);
+    }
+    
+    printer = exactPrinter; // Use exact match
+    
+    console.log('[QZ Test Print] Using printer:', printer);
+    
+    // Create minimal config - no complex options
+    const config = qz.configs.create(printer, {
+      jobName: 'QZ Tray Test Print'
+    });
+    
+    // Create simple raw text data - much faster and more reliable than HTML
+    const testText = `
+================================
+QZ TRAY TEST PRINT
+================================
+If you can see this, printing is working!
+
+Printer: ${printer}
+Time: ${new Date().toLocaleString()}
+================================
+
+`;
+    
+    console.log('[QZ Test Print] Sending raw text print...');
+    console.log('[QZ Test Print] Text content:', testText);
+    
+    const printData = [
+      {
+        type: 'raw',
+        data: testText
+      }
+    ];
+    
+    // Use shorter timeout for test print (10 seconds)
+    const printPromise = qz.print(config, printData);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Test print timed out after 10 seconds'));
+      }, 10000);
+    });
+    
+    const result = await Promise.race([printPromise, timeoutPromise]);
+    console.log('[QZ Test Print] Print result:', result);
+    
+    return {
+      success: true,
+      printer: printer,
+      message: 'Test print sent successfully',
+      result: result
+    };
+  } catch (error) {
+    console.error('[QZ Test Print] Error:', error);
+    
+    // If raw text fails, try HTML as fallback
+    console.log('[QZ Test Print] Raw text failed, trying HTML fallback...');
+    try {
+      const testHtml = `
+        <div style="text-align: center; padding: 20px;">
+          <h1>QZ Tray Test Print</h1>
+          <p>If you can see this, printing is working!</p>
+          <p>Printer: ${printerName || 'Default'}</p>
+          <p>Time: ${new Date().toLocaleString()}</p>
+        </div>
+      `;
+      
+      return await printWithQZ(testHtml, printerName, { copies: 1 });
+    } catch (htmlError) {
+      console.error('[QZ Test Print] HTML fallback also failed:', htmlError);
+      throw error; // Throw original error
+    }
+  }
 }
 
 /**
