@@ -609,36 +609,67 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     const defaultSettings = getDefaultPrintSettings(printer);
     const printSettings = savedSettings ? { ...defaultSettings, ...savedSettings } : defaultSettings;
 
-    // Create print configuration - ABSOLUTE MINIMAL to avoid QZ Tray hanging
-    // QZ Tray can hang if config options are invalid or incompatible
-    // Start with absolute minimum and only add what's absolutely necessary
+    // Create print configuration
+    // For pixel/image format, Windows Print API requires specific options
     const configOptions = {};
     
-    // Only add jobName - this is safe and helps identify jobs
+    // Job name - always safe to add
     if (printSettings.jobName) {
       configOptions.jobName = printSettings.jobName;
     }
     
-    // For PDF printers, add minimal size options (but validate them first)
-    if (isPDFPrinter && printSettings.size) {
-      // Validate size object before adding
-      if (printSettings.size.width && printSettings.size.height) {
-        configOptions.size = {
-          width: Number(printSettings.size.width),
-          height: Number(printSettings.size.height)
-        };
-      }
-      // Only add orientation if it's valid
-      if (printSettings.orientation === 'portrait' || printSettings.orientation === 'landscape') {
-        configOptions.orientation = printSettings.orientation;
-      }
+    // For image/pixel format, Windows Print API needs size and interpolation
+    // These are REQUIRED for image format to work with Windows Print API
+    const configPaperWidth = printSettings.size?.width || (isPDFPrinter ? 595 : 80);
+    const configPaperHeight = printSettings.size?.height || (isPDFPrinter ? 842 : null);
+    
+    // Convert to points if needed (QZ Tray expects points for size)
+    const widthPoints = printSettings.units === 'mm' 
+      ? Math.round((configPaperWidth / 25.4) * 72) // Convert mm to points
+      : configPaperWidth;
+    
+    const heightPoints = configPaperHeight 
+      ? (printSettings.units === 'mm' ? Math.round((configPaperHeight / 25.4) * 72) : configPaperHeight)
+      : null;
+    
+    // Size is REQUIRED for image format - Windows Print API needs it
+    configOptions.size = {
+      width: widthPoints
+    };
+    if (heightPoints) {
+      configOptions.size.height = heightPoints;
     }
     
-    // DO NOT add copies to config - it goes in printData options instead
-    // DO NOT add margins, colorType, interpolation, rasterize, etc. - they can cause hangs
-    // Let QZ Tray use printer defaults for everything else
-    console.log('[QZ Print] Using absolute minimal config to avoid QZ Tray hanging');
-    console.log('[QZ Print] Config options count:', Object.keys(configOptions).length);
+    // Interpolation is REQUIRED for image format - tells Windows how to scale the image
+    configOptions.interpolation = printSettings.interpolation || 'nearest-neighbor';
+    
+    // Color type - grayscale for thermal printers, color for PDF
+    configOptions.colorType = printSettings.colorType || (isPDFPrinter ? 'color' : 'grayscale');
+    
+    // Orientation
+    if (printSettings.orientation === 'portrait' || printSettings.orientation === 'landscape') {
+      configOptions.orientation = printSettings.orientation;
+    }
+    
+    // Margins - set to 0 for thermal printers
+    configOptions.margins = {
+      top: printSettings.margins?.top || 0,
+      bottom: printSettings.margins?.bottom || 0,
+      left: printSettings.margins?.left || 0,
+      right: printSettings.margins?.right || 0
+    };
+    
+    // For thermal printers, add rasterize option (helps Windows Print API process the image)
+    if (!isPDFPrinter) {
+      configOptions.rasterize = true; // Required for Windows Print API to accept image jobs
+    }
+    
+    console.log('[QZ Print] Config options for image format:', {
+      size: configOptions.size,
+      interpolation: configOptions.interpolation,
+      colorType: configOptions.colorType,
+      rasterize: configOptions.rasterize
+    });
     
     // Log the exact printer name being used (important for debugging)
     console.log('[QZ Print] Creating config for printer:', printer);
