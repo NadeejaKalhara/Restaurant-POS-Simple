@@ -17,7 +17,8 @@ import {
   savePrinterSettings,
   testPrint,
   checkPrinterStatus,
-  getPrinterDetails
+  getPrinterDetails,
+  diagnoseQZPrint
 } from '@/utils/qzPrint';
 
 export default function QZTraySettings() {

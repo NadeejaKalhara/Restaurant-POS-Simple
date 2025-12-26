@@ -897,6 +897,81 @@ export async function printReceipt(element, options = {}) {
 }
 
 /**
+ * Diagnostic function to check QZ Tray and printer status
+ * Use this to troubleshoot why jobs aren't being queued
+ */
+export async function diagnoseQZPrint(printerName = null) {
+  const diagnostics = {
+    qzAvailable: false,
+    qzConnected: false,
+    printerFound: false,
+    printerName: null,
+    allPrinters: [],
+    websocketActive: false,
+    configCreated: false,
+    error: null
+  };
+  
+  try {
+    diagnostics.qzAvailable = isQZAvailable();
+    console.log('[QZ Diagnose] QZ Available:', diagnostics.qzAvailable);
+    
+    if (!diagnostics.qzAvailable) {
+      diagnostics.error = 'QZ Tray is not available';
+      return diagnostics;
+    }
+    
+    diagnostics.qzConnected = await connectQZ();
+    console.log('[QZ Diagnose] QZ Connected:', diagnostics.qzConnected);
+    
+    if (!diagnostics.qzConnected) {
+      diagnostics.error = 'Failed to connect to QZ Tray';
+      return diagnostics;
+    }
+    
+    diagnostics.websocketActive = qz.websocket.isActive();
+    console.log('[QZ Diagnose] Websocket Active:', diagnostics.websocketActive);
+    
+    diagnostics.allPrinters = await qz.printers.find();
+    console.log('[QZ Diagnose] Available Printers:', diagnostics.allPrinters);
+    
+    let printer = printerName;
+    if (!printer && diagnostics.allPrinters.length > 0) {
+      printer = diagnostics.allPrinters[0];
+    }
+    
+    if (printer) {
+      const found = diagnostics.allPrinters.find(p => 
+        p === printer || p.toLowerCase() === printer.toLowerCase()
+      );
+      if (found) {
+        diagnostics.printerFound = true;
+        diagnostics.printerName = found;
+        console.log('[QZ Diagnose] Printer Found:', found);
+        
+        try {
+          const config = qz.configs.create(found);
+          diagnostics.configCreated = !!config;
+          console.log('[QZ Diagnose] Config Created:', diagnostics.configCreated);
+        } catch (configError) {
+          diagnostics.error = `Config creation failed: ${configError.message}`;
+        }
+      } else {
+        diagnostics.error = `Printer "${printer}" not found`;
+      }
+    } else {
+      diagnostics.error = 'No printer available';
+    }
+    
+  } catch (error) {
+    diagnostics.error = error.message || String(error);
+    console.error('[QZ Diagnose] Error:', error);
+  }
+  
+  return diagnostics;
+}
+
+/**
  * Test print - sends a simple test page to verify printer is working
  * Uses raw text format for better reliability and faster printing
  */
@@ -958,34 +1033,22 @@ export async function testPrint(printerName = null) {
       configType: typeof config
     });
     
-    // Create simple raw text data - much faster and more reliable than HTML
-    const testText = `QZ TRAY TEST PRINT\nIf you can see this, printing is working!\nPrinter: ${printer}\nTime: ${new Date().toLocaleString()}\n\n`;
+    // ABSOLUTE MINIMAL: Simplest possible text - just "TEST\n"
+    const testText = 'TEST\n';
     
-    console.log('[QZ Test Print] Sending raw text print...');
-    console.log('[QZ Test Print] Text content length:', testText.length);
-    console.log('[QZ Test Print] Text preview:', testText.substring(0, 50));
+    console.log('[QZ Test Print] Sending ABSOLUTE MINIMAL raw text...');
+    console.log('[QZ Test Print] Text:', JSON.stringify(testText));
     
-    // Raw data format - QZ Tray expects just type and data
-    const printData = [
-      {
-        type: 'raw',
-        data: testText
-      }
-    ];
-    
-    console.log('[QZ Test Print] Print data prepared:', {
-      type: printData[0].type,
-      dataLength: printData[0].data.length,
-      hasFormat: 'format' in printData[0]
-    });
+    // ABSOLUTE MINIMAL: Just type and data, nothing else
+    const printData = [{ type: 'raw', data: testText }];
     
     console.log('[QZ Test Print] About to call qz.print()...');
-    console.log('[QZ Test Print] Config:', config);
-    console.log('[QZ Test Print] PrintData:', printData);
+    console.log('[QZ Test Print] Config keys:', Object.keys(config));
+    console.log('[QZ Test Print] PrintData:', JSON.stringify(printData));
     
-    // Use shorter timeout for test print (10 seconds)
+    // Shorter timeout - if this doesn't work, QZ Tray has a fundamental issue
     const printPromise = qz.print(config, printData).catch(error => {
-      console.error('[QZ Test Print] Print promise rejected:', error);
+      console.error('[QZ Test Print] Print promise rejected immediately:', error);
       throw error;
     });
     
@@ -993,18 +1056,26 @@ export async function testPrint(printerName = null) {
     
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
-        console.error('[QZ Test Print] TIMEOUT: No response from QZ Tray after 10 seconds');
-        reject(new Error('Test print timed out after 10 seconds - QZ Tray did not respond'));
-      }, 10000);
+        console.error('[QZ Test Print] TIMEOUT: QZ Tray did not respond after 8 seconds');
+        console.error('[QZ Test Print] This means QZ Tray received the request but did not process it');
+        console.error('[QZ Test Print] TROUBLESHOOTING STEPS:');
+        console.error('[QZ Test Print]   1. Check QZ Tray logs: %APPDATA%\\qz or C:\\ProgramData\\qz');
+        console.error('[QZ Test Print]   2. Verify printer is online in Windows Settings');
+        console.error('[QZ Test Print]   3. Try printing from Notepad to test printer');
+        console.error('[QZ Test Print]   4. Check Windows Print Queue for stuck jobs');
+        console.error('[QZ Test Print]   5. Restart QZ Tray application');
+        console.error('[QZ Test Print]   6. Update QZ Tray to latest version');
+        reject(new Error('QZ Tray timeout - job not queued. See console for troubleshooting steps.'));
+      }, 8000);
     });
     
     const result = await Promise.race([printPromise, timeoutPromise]);
-    console.log('[QZ Test Print] Print result received:', result);
+    console.log('[QZ Test Print] SUCCESS! Print result:', result);
     
     return {
       success: true,
       printer: printer,
-      message: 'Test print sent successfully',
+      message: 'Test print queued successfully',
       result: result
     };
   } catch (error) {
