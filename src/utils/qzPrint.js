@@ -885,44 +885,62 @@ export async function testPrint(printerName = null) {
     
     console.log('[QZ Test Print] Using printer:', printer);
     
-    // Create minimal config - no complex options
-    const config = qz.configs.create(printer, {
-      jobName: 'QZ Tray Test Print'
+    // Create absolute minimal config - no options at all
+    console.log('[QZ Test Print] Creating minimal config...');
+    const config = qz.configs.create(printer);
+    
+    if (!config) {
+      throw new Error('Failed to create config');
+    }
+    
+    console.log('[QZ Test Print] Config created:', {
+      hasPrinter: !!config.printer,
+      printerName: config.printer?.name || config.printer
     });
     
     // Create simple raw text data - much faster and more reliable than HTML
-    const testText = `
-================================
-QZ TRAY TEST PRINT
-================================
-If you can see this, printing is working!
-
-Printer: ${printer}
-Time: ${new Date().toLocaleString()}
-================================
-
-`;
+    const testText = `QZ TRAY TEST PRINT\nIf you can see this, printing is working!\nPrinter: ${printer}\nTime: ${new Date().toLocaleString()}\n\n`;
     
     console.log('[QZ Test Print] Sending raw text print...');
-    console.log('[QZ Test Print] Text content:', testText);
+    console.log('[QZ Test Print] Text content length:', testText.length);
+    console.log('[QZ Test Print] Text preview:', testText.substring(0, 50));
     
+    // Try different raw data formats
     const printData = [
       {
         type: 'raw',
-        data: testText
+        data: testText,
+        format: 'plain'
       }
     ];
     
+    console.log('[QZ Test Print] Print data prepared:', {
+      type: printData[0].type,
+      format: printData[0].format,
+      dataLength: printData[0].data.length
+    });
+    
+    console.log('[QZ Test Print] About to call qz.print()...');
+    console.log('[QZ Test Print] Config:', config);
+    console.log('[QZ Test Print] PrintData:', printData);
+    
     // Use shorter timeout for test print (10 seconds)
-    const printPromise = qz.print(config, printData);
+    const printPromise = qz.print(config, printData).catch(error => {
+      console.error('[QZ Test Print] Print promise rejected:', error);
+      throw error;
+    });
+    
+    console.log('[QZ Test Print] qz.print() called, waiting for response...');
+    
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
-        reject(new Error('Test print timed out after 10 seconds'));
+        console.error('[QZ Test Print] TIMEOUT: No response from QZ Tray after 10 seconds');
+        reject(new Error('Test print timed out after 10 seconds - QZ Tray did not respond'));
       }, 10000);
     });
     
     const result = await Promise.race([printPromise, timeoutPromise]);
-    console.log('[QZ Test Print] Print result:', result);
+    console.log('[QZ Test Print] Print result received:', result);
     
     return {
       success: true,
