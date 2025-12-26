@@ -482,24 +482,36 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     const defaultSettings = getDefaultPrintSettings(printer);
     const printSettings = savedSettings ? { ...defaultSettings, ...savedSettings } : defaultSettings;
 
-    // Create print configuration - SIMPLIFIED to avoid QZ Tray hanging
-    // Use minimal options - complex options can cause QZ Tray to hang
-    const configOptions = {
-      jobName: printSettings.jobName || 'POS Receipt',
-      copies: options.copies || 1
-    };
+    // Create print configuration - ABSOLUTE MINIMAL to avoid QZ Tray hanging
+    // QZ Tray can hang if config options are invalid or incompatible
+    // Start with absolute minimum and only add what's absolutely necessary
+    const configOptions = {};
     
-    // Only add size if it's a PDF printer (PDF printers need explicit size)
-    if (isPDFPrinter) {
-      configOptions.size = printSettings.size;
-      configOptions.margins = printSettings.margins;
-      configOptions.orientation = printSettings.orientation;
-      configOptions.colorType = printSettings.colorType;
+    // Only add jobName - this is safe and helps identify jobs
+    if (printSettings.jobName) {
+      configOptions.jobName = printSettings.jobName;
     }
     
-    // For thermal printers, use minimal config - let QZ Tray handle defaults
-    // Don't add rasterize, scaleContent, units, etc. as they can cause hangs
-    console.log('[QZ Print] Using simplified config options to avoid QZ Tray hanging');
+    // For PDF printers, add minimal size options (but validate them first)
+    if (isPDFPrinter && printSettings.size) {
+      // Validate size object before adding
+      if (printSettings.size.width && printSettings.size.height) {
+        configOptions.size = {
+          width: Number(printSettings.size.width),
+          height: Number(printSettings.size.height)
+        };
+      }
+      // Only add orientation if it's valid
+      if (printSettings.orientation === 'portrait' || printSettings.orientation === 'landscape') {
+        configOptions.orientation = printSettings.orientation;
+      }
+    }
+    
+    // DO NOT add copies to config - it goes in printData options instead
+    // DO NOT add margins, colorType, interpolation, rasterize, etc. - they can cause hangs
+    // Let QZ Tray use printer defaults for everything else
+    console.log('[QZ Print] Using absolute minimal config to avoid QZ Tray hanging');
+    console.log('[QZ Print] Config options count:', Object.keys(configOptions).length);
     
     // Log the exact printer name being used (important for debugging)
     console.log('[QZ Print] Creating config for printer:', printer);
@@ -513,17 +525,36 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
     
     let config;
     try {
-      config = qz.configs.create(printer, configOptions);
+      // Try creating config with options first
+      if (Object.keys(configOptions).length > 0) {
+        console.log('[QZ Print] Creating config with options:', configOptions);
+        config = qz.configs.create(printer, configOptions);
+      } else {
+        // If no options, create minimal config
+        console.log('[QZ Print] Creating config with no options (absolute minimal)');
+        config = qz.configs.create(printer);
+      }
       
       // Verify the config was created correctly
       if (!config) {
         throw new Error('Failed to create print configuration - config is null/undefined');
       }
       
+      // Validate config structure
+      if (typeof config !== 'object') {
+        throw new Error(`Invalid config type: ${typeof config}. Expected object.`);
+      }
+      
       console.log('[QZ Print] Config created successfully');
       console.log('[QZ Print] Config type:', typeof config);
+      console.log('[QZ Print] Config keys:', Object.keys(config));
       console.log('[QZ Print] Config printer name:', config?.printer?.name || config?.printer || 'not set');
-      console.log('[QZ Print] Config has options:', !!config?.options);
+      
+      // Check if config has the expected structure
+      const hasPrinter = !!(config.printer || (config.printer && config.printer.name));
+      if (!hasPrinter) {
+        console.warn('[QZ Print] WARNING: Config does not have printer property');
+      }
       
       // Verify printer name in config matches what we requested
       const configPrinterName = config?.printer?.name || config?.printer;
@@ -531,16 +562,32 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
         console.warn('[QZ Print] WARNING: Config printer name does not match requested printer');
         console.warn('[QZ Print] Requested:', printer);
         console.warn('[QZ Print] Config has:', configPrinterName);
+        // Try to fix it by recreating with exact printer name
+        console.log('[QZ Print] Attempting to recreate config with exact printer name...');
+        config = qz.configs.create(configPrinterName || printer, configOptions);
       }
     } catch (configError) {
       console.error('[QZ Print] Error creating print configuration:', configError);
       console.error('[QZ Print] Config error details:', {
         message: configError?.message,
         name: configError?.name,
+        stack: configError?.stack,
         printer: printer,
-        options: configOptions
+        options: configOptions,
+        optionsKeys: Object.keys(configOptions)
       });
-      throw new Error(`Failed to create print configuration: ${configError?.message || String(configError)}`);
+      
+      // Try fallback: create config with no options at all
+      try {
+        console.log('[QZ Print] Attempting fallback: config with no options...');
+        config = qz.configs.create(printer);
+        if (config) {
+          console.log('[QZ Print] Fallback config created successfully');
+        }
+      } catch (fallbackError) {
+        console.error('[QZ Print] Fallback config also failed:', fallbackError);
+        throw new Error(`Failed to create print configuration: ${configError?.message || String(configError)}`);
+      }
     }
     
     // Wrap HTML content optimized for thermal paper
@@ -647,14 +694,15 @@ export async function printWithQZ(htmlContent, printerName = null, options = {})
       console.warn('[QZ Print] WARNING: HTML may not be properly formatted');
     }
     
+    // Print data - copies should be in options, not config
+    // Remove format property - it's not needed for HTML type
     const printData = [
       {
         type: 'html',
-        format: 'html',
         data: htmlData, // Raw HTML string - QZ Tray's preferred format
         options: {
-          copies: options.copies || 1,
-          jobName: printSettings.jobName || 'POS Receipt'
+          copies: options.copies || 1
+          // Don't add jobName here - it's already in config
         }
       }
     ];
@@ -927,8 +975,8 @@ export async function testPrint(printerName = null) {
     
     console.log('[QZ Test Print] Print data prepared:', {
       type: printData[0].type,
-      format: printData[0].format,
-      dataLength: printData[0].data.length
+      dataLength: printData[0].data.length,
+      hasFormat: 'format' in printData[0]
     });
     
     console.log('[QZ Test Print] About to call qz.print()...');
