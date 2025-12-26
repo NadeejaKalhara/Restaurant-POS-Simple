@@ -5,7 +5,7 @@ import { Printer, X, Utensils } from 'lucide-react';
 import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';
 import KOTReceipt from './KOTReceipt';
-import { printReceipt, isQZAvailable } from '@/utils/qzPrint';
+import { printReceipt, getPrintStatus } from '@/utils/print';
 import { toast } from 'sonner';
 
 export default function Receipt({ 
@@ -17,11 +17,16 @@ export default function Receipt({
 }) {
   const printRef = useRef(null);
   const [showKOT, setShowKOT] = useState(false);
-  const [qzAvailable, setQzAvailable] = useState(false);
+  const [printAvailable, setPrintAvailable] = useState(false);
 
-  // Check QZ Tray availability
+  // Check print availability (local server or QZ Tray)
   useEffect(() => {
-    setQzAvailable(isQZAvailable());
+    getPrintStatus().then(status => {
+      setPrintAvailable(status.available);
+      if (!status.available) {
+        console.warn('[Receipt] No print method available. Start local printer server or QZ Tray.');
+      }
+    });
   }, []);
 
   // Auto-print receipt when dialog opens
@@ -35,12 +40,12 @@ export default function Receipt({
               toast.success(`Receipt sent to ${result.printer || 'printer'} successfully`);
             },
             onError: (error) => {
-              toast.error(`Print failed: ${error.message || 'Please ensure QZ Tray is running and certificate is installed.'}`);
+              toast.error(`Print failed: ${error.message || 'Please ensure local printer server is running or QZ Tray is available.'}`);
               console.error('Print error:', error);
             }
           });
         } catch (error) {
-          toast.error('Print failed. Please check QZ Tray connection.');
+          toast.error('Print failed. Please check printer server connection.');
         }
       }, 300);
       

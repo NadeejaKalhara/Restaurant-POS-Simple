@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { format } from 'date-fns';
-import { printReceipt, isQZAvailable } from '@/utils/qzPrint';
+import { printReceipt } from '@/utils/print';
 import { toast } from 'sonner';
 
 export default function KOTReceipt({ 
@@ -27,7 +27,7 @@ export default function KOTReceipt({
               }
             },
             onError: (error) => {
-              toast.error(`KOT print failed: ${error.message || 'Please ensure QZ Tray is running.'}`);
+              toast.error(`KOT print failed: ${error.message || 'Please ensure printer server is running.'}`);
               console.error('Print error:', error);
               // Callback even on error
               if (onPrintComplete) {
@@ -38,7 +38,7 @@ export default function KOTReceipt({
             }
           });
         } catch (error) {
-          toast.error('KOT print failed. Please check QZ Tray connection.');
+          toast.error('KOT print failed. Please check printer server connection.');
           if (onPrintComplete) {
             setTimeout(() => {
               onPrintComplete();

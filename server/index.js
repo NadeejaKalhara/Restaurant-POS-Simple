@@ -16,22 +16,50 @@ const PORT = process.env.PORT || 5000;
 
 // Security: Configure CORS
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',')
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : ['https://shan.cynex.lk'];
+
+// Add localhost origins for development (Electron app, Vite dev server)
+const localhostOrigins = [
+  'http://localhost:5173',  // Vite dev server
+  'http://localhost:3000',  // Common dev port
+  'http://localhost:5174',  // Vite alternative port
+  'http://127.0.0.1:5173',  // IP version
+  'http://127.0.0.1:3000',  // IP version
+  'http://127.0.0.1:5174'   // IP version
+];
+
+// Combine allowed origins with localhost for development
+const allAllowedOrigins = [...allowedOrigins, ...localhostOrigins];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Allow requests with no origin (like mobile apps, curl, Electron, or Postman)
+    if (!origin) {
+      return callback(null, true);
     }
+    
+    // Check if origin is in allowed list
+    if (allAllowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    }
+    
+    // Allow localhost for development (check if origin contains localhost or 127.0.0.1)
+    if (process.env.NODE_ENV !== 'production') {
+      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        return callback(null, true);
+      }
+    }
+    
+    // Reject if not allowed
+    console.warn(`[CORS] Blocked origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // Security: Body parser with limits

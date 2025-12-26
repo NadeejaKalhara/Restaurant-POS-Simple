@@ -1,0 +1,38 @@
+HOW TO CREATE ZIP FILE FOR DISTRIBUTION
+========================================
+
+1. Make sure you've run: npm install
+   (This creates the node_modules folder)
+
+2. Zip the entire thermal-printer-script folder including:
+   - print.js
+   - package.json
+   - README.md
+   - INSTALL.txt
+   - receipt.json (example)
+   - node_modules/ (after npm install)
+   - install.bat
+   - print-test.bat
+
+3. For users receiving the zip:
+   - Extract the folder
+   - Open Command Prompt in the folder
+   - Run: npm install (if node_modules not included)
+   - Run: node print.js test "Printer Name"
+
+NOTE: node_modules folder is large (~50MB)
+You can exclude it and users will run npm install themselves.
+
+RECOMMENDED ZIP CONTENTS:
+--------------------------
+✓ print.js
+✓ package.json
+✓ README.md
+✓ INSTALL.txt
+✓ receipt.json
+✓ install.bat
+✓ print-test.bat
+✗ node_modules (exclude - let users install)
+
+This keeps the zip file small (~50KB instead of ~50MB)
+

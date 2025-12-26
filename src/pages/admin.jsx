@@ -10,7 +10,7 @@ import { createPageUrl } from '@/utils';
 import MenuManager from '@/components/admin/MenuManager';
 import OrderHistory from '@/components/admin/OrderHistory';
 import DiscountManager from '@/components/admin/DiscountManager';
-import QZTraySettings from '@/components/admin/QZTraySettings';
+import PrinterSettings from '@/components/admin/PrinterSettings';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/utils/currency';
@@ -182,7 +182,7 @@ export default function Admin() {
           </TabsContent>
 
           <TabsContent value="settings">
-            <QZTraySettings />
+            <PrinterSettings />
           </TabsContent>
         </Tabs>
       </div>

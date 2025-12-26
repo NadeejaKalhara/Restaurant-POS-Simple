@@ -10,7 +10,6 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import POSTerminal from './pages/POSTerminal';
 import Admin from './pages/admin';
-import { configureQZSigning } from './utils/qzPrint';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -23,17 +22,7 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  // Initialize QZ Tray certificate signing on app load
-  useEffect(() => {
-    // Configure QZ Tray with server-side certificate signing
-    // Certificate files are in server/qz-keys/ directory
-    // Server handles signing via /api/qz/certificate and /api/qz/sign endpoints
-    configureQZSigning({
-      certificateUrl: '/api/qz/certificate', // Fetch certificate from server
-      signatureUrl: '/api/qz/sign', // Sign messages on server
-      useDemoCert: false // Use server-side signing
-    });
-  }, []);
+  // No QZ Tray initialization needed - using Electron IPC bridge or local server
 
   return (
     <QueryClientProvider client={queryClient}>

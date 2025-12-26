@@ -1,0 +1,42 @@
+THERMAL PRINTER SCRIPT - INSTALLATION GUIDE
+===========================================
+
+QUICK START:
+------------
+1. Extract this folder
+2. Open Command Prompt or PowerShell in this folder
+3. Run: npm install
+4. Run: node print.js test "Your Printer Name"
+
+FINDING YOUR PRINTER NAME:
+--------------------------
+1. Open Windows Settings
+2. Go to Printers & scanners
+3. Find your thermal printer
+4. Copy the exact name (case-sensitive)
+
+EXAMPLE COMMANDS:
+-----------------
+# Print test receipt
+node print.js test
+
+# Print to specific printer
+node print.js test "XP-76C"
+
+# Print custom receipt
+node print.js receipt receipt.json "XP-76C"
+
+REQUIREMENTS:
+-------------
+- Node.js installed (v14 or higher)
+- Thermal printer connected and turned on
+- Printer driver installed in Windows
+
+TROUBLESHOOTING:
+----------------
+- If "printer not found": Check printer name is exact
+- If permission error: Run as Administrator
+- If print fails: Check Windows Print Queue
+
+For more details, see README.md
+
